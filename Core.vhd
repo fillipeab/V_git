@@ -400,7 +400,7 @@ begin
                 when S_INPUT =>
                     if key_valid = '1' then
                         case key_value is
-                            when "0000" to "1001" =>
+                            when "0000" | "0001" | "0010" | "0011" | "0100" | "0101" | "0110" | "0111" | "1000" | "1001" =>
                                 if input_count < 3 then
                                     input_buffer((2-input_count)*8+7 downto (2-input_count)*8) 
                                         <= digito_para_ascii(key_value);

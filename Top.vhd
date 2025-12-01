@@ -1,0 +1,84 @@
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity Top_Quiz is
+    -- Adicionamos os Generics aqui também para passarem
+    generic (
+        SAFETY_CYCLES : integer := 2500000; -- 50ms default
+        EGG_CYCLES    : integer := 100000000 -- 2s default
+    );
+port (
+        clk         : in  std_logic;
+        reset_n     : in  std_logic;
+        ps2_clk     : in  std_logic;
+        ps2_data    : in  std_logic;
+        btn_start   : in  std_logic;
+        lcd_busy         : in std_logic;
+        lcd_data_out     : out std_logic_vector(7 downto 0);
+ 
+        lcd_rs_out       : out std_logic;
+        lcd_write_en_out : out std_logic;
+        lcd_rw_out       : out std_logic;
+
+	quiz_finished         : out  std_logic
+    );
+end entity Top_Quiz;
+
+architecture Structural of Top_Quiz is
+
+    signal key_value   : std_logic_vector(3 downto 0);
+    signal key_valid   : std_logic;
+    signal questao_texto1 : std_logic_vector(127 downto 0);
+    signal questao_resposta : std_logic_vector(7 downto 0);
+    signal questao_index   : integer range 0 to 7; 
+    signal display_linha1  : std_logic_vector(127 downto 0);
+    signal display_linha2  : std_logic_vector(127 downto 0);
+    signal core_lcd_update : std_logic;
+
+begin
+    lcd_rw_out <= '0';
+    
+    ps2_inst: entity work.PS2_Keyboard_Buffered
+        port map (
+            clk => clk, reset_n => reset_n,
+            ps2_clk => ps2_clk, ps2_data => ps2_data,
+            key_value => key_value, key_valid => key_valid
+        );
+    
+    banco_inst: entity work.Question_Bank
+        generic map (TOTAL_QUESTIONS => 8)
+        port map (
+            clk => clk, question_index => questao_index,
+            question_text1 => questao_texto1, correct_answer => questao_resposta
+        );
+    
+    -- Mapeamento dos Generics para o Core
+    core_inst: entity work.Quiz_Core_Final
+        generic map (
+            MAX_QUESTOES => 8,
+            SAFETY_CYCLES => SAFETY_CYCLES, -- Repassa
+            EGG_CYCLES    => EGG_CYCLES     -- Repassa
+        )
+        port map (
+       
+            clk => clk, reset_n => reset_n,
+            key_value => key_value, key_valid => key_valid,
+            btn_start => btn_start, 
+            questao_texto1 => questao_texto1, questao_resposta => questao_resposta,
+            questao_index => questao_index,
+         
+            display_linha1 => display_linha1, display_linha2 => display_linha2,
+            lcd_update_req => core_lcd_update, 
+            quiz_finished => quiz_finished
+        );
+    
+    lcd_inst: entity work.LCD_Display_Controller
+        port map (
+            clk => clk, reset_n => reset_n,
+            text_line1 => display_linha1, text_line2 => display_linha2,
+            update_req => core_lcd_update, lcd_busy => lcd_busy,
+            lcd_data_out => lcd_data_out, lcd_rs_out => lcd_rs_out,
+            lcd_write_en_out => lcd_write_en_out
+      
+      );
+end architecture Structural;

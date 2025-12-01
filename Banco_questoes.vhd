@@ -12,8 +12,6 @@ package Quiz_Strings_PKG is
     
     -- ========== QUESTÕES ==========
     constant MSG_RESP_TEMP  : std_logic_vector(127 downto 0) := X"526573706F7374613A202020202020"; -- "Resposta:       "
-    constant MSG_VERIFYING  : std_logic_vector(127 downto 0) := X"56657269666963616E646F2E2E2E20"; -- "Verificando... "
-    constant MSG_WAIT       : std_logic_vector(127 downto 0) := X"416775617264652E2E2E2E2E2E2E20"; -- "Aguarde...... "
     
     -- ========== RESULTADOS ==========
     constant MSG_CORRECT    : std_logic_vector(127 downto 0) := X"436F727265746F21203A2D29202020"; -- "Correto! :-)  "

@@ -53,7 +53,7 @@ begin
         );
     
     -- Mapeamento dos Generics para o Core
-    core_inst: entity work.Quiz_Core_Final
+    core_inst: entity work.Quiz_Core_Minimal
         generic map (
             MAX_QUESTOES => 8,
             SAFETY_CYCLES => SAFETY_CYCLES, -- Repassa

@@ -7,27 +7,27 @@ use ieee.std_logic_1164.all;
 
 package Quiz_Strings_PKG is
     -- ========== MENU ==========
-    constant MSG_MENU_TITLE : std_logic_vector(127 downto 0) := X"4469666963756c6461646520312d33"; -- "Dificuldade 1-3 "
-    constant MSG_MENU_OPTS  : std_logic_vector(127 downto 0) := X"20312046202032204D202033204420"; -- " 1 F   2 M   3 D  "
+    constant MSG_MENU_TITLE : std_logic_vector(127 downto 0) := X"4469666963756c6461646520312d3320"; -- "Dificuldade 1-3 "
+    constant MSG_MENU_OPTS  : std_logic_vector(127 downto 0) := X"20312046202032204D20203320442020"; -- " 1 F   2 M   3 D  "
     
     -- ========== QUESTÕES ==========
-    constant MSG_RESP_TEMP  : std_logic_vector(127 downto 0) := X"526573706F7374613A202020202020"; -- "Resposta:       "
+    constant MSG_RESP_TEMP  : std_logic_vector(127 downto 0) := X"526573706F7374613A20202020202020"; -- "Resposta:       "
     
     -- ========== RESULTADOS ==========
-    constant MSG_CORRECT    : std_logic_vector(127 downto 0) := X"436F727265746F21203A2D29202020"; -- "Correto! :-)  "
-    constant MSG_WRONG      : std_logic_vector(127 downto 0) := X"45727261646F21203A2D2820202020"; -- "Errado! :-(  "
-    constant MSG_NEXT       : std_logic_vector(127 downto 0) := X"456E7465723A2050726F78696D6F20"; -- "Enter: Proximo "
+    constant MSG_CORRECT    : std_logic_vector(127 downto 0) := X"436F727265746F21203A2D2920202020"; -- "Correto! :-)  "
+    constant MSG_WRONG      : std_logic_vector(127 downto 0) := X"45727261646F21203A2D282020202020"; -- "Errado! :-(  "
+    constant MSG_NEXT       : std_logic_vector(127 downto 0) := X"456E7465723A2050726F78696D6F2020"; -- "Enter: Proximo "
     
     -- ========== FINAL ==========
-    constant MSG_FINISHED   : std_logic_vector(127 downto 0) := X"5175697A2046696E616C697A61646F"; -- "Quiz Finalizado"
-    constant MSG_LEVEL_EASY : std_logic_vector(127 downto 0) := X"4E6976656C3A20466163696C202020"; -- "Nivel: Facil   "
-    constant MSG_LEVEL_MED  : std_logic_vector(127 downto 0) := X"4E6976656C3A204D6564696F202020"; -- "Nivel: Medio   "
-    constant MSG_LEVEL_HARD : std_logic_vector(127 downto 0) := X"4E6976656C3A204469666963696C20"; -- "Nivel: Dificil "
-    constant MSG_SCORE_PRE  : std_logic_vector(63 downto 0)  := X"506F6E746F733A20"; -- "Pontos: "
+    constant MSG_FINISHED   : std_logic_vector(127 downto 0) := X"5175697A2046696E616C697A61646F20"; -- "Quiz Finalizado"
+    constant MSG_LEVEL_EASY : std_logic_vector(127 downto 0) := X"4E6976656C3A20466163696C20202020"; -- "Nivel: Facil   "
+    constant MSG_LEVEL_MED  : std_logic_vector(127 downto 0) := X"4E6976656C3A204D6564696F20202020"; -- "Nivel: Medio   "
+    constant MSG_LEVEL_HARD : std_logic_vector(127 downto 0) := X"4E6976656C3A204469666963696C2020"; -- "Nivel: Dificil "
+    constant MSG_SCORE_PRE  : std_logic_vector(55 downto 0)  := X"506F6E746F733A"; -- "Pontos: "
     
     -- ========== INÍCIO ==========
-    constant MSG_PRESS_START: std_logic_vector(127 downto 0) := X"50726573696F6E6520537461727420"; -- "Presione Start "
-    constant MSG_TO_START   : std_logic_vector(127 downto 0) := X"7061726120636F6D65636172202020"; -- "para comecar   "
+    constant MSG_PRESS_START: std_logic_vector(127 downto 0) := X"50726573696F6E652053746172742020"; -- "Presione Start "
+    constant MSG_TO_START   : std_logic_vector(127 downto 0) := X"7061726120636F6D6563617220202020"; -- "para comecar   "
     
     -- ========== CARACTERES ==========
     constant CHAR_UNDER     : std_logic_vector(7 downto 0)   := X"5F"; -- '_'
@@ -43,6 +43,16 @@ package Quiz_Strings_PKG is
     constant CHAR_7         : std_logic_vector(7 downto 0)   := X"37"; -- '7'
     constant CHAR_8         : std_logic_vector(7 downto 0)   := X"38"; -- '8'
     constant CHAR_9         : std_logic_vector(7 downto 0)   := X"39"; -- '9'
+	
+    -- ========== SPACES ==========
+	constant SPACE_24 : std_logic_vector(23 downto 0) := 
+	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
+	constant SPACE_32 : std_logic_vector(31 downto 0) := 
+	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
+	constant SPACE_56 : std_logic_vector(55 downto 0) := 
+	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & 
+	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
+	constant SPACE_128 : std_logic_vector(127 downto 0) := (others => '0');
     
 end package Quiz_Strings_PKG;
 
@@ -86,7 +96,7 @@ architecture Behavioral of Quiz_Core_Minimal is
     signal state : T_QUIZ_STATE := S_IDLE;
     
     signal safeguard_counter : integer range 0 to SAFETY_CYCLES := 0;
-    signal input_buffer      : std_logic_vector(23 downto 0) := (others => CHAR_SPACE);
+    signal input_buffer      : std_logic_vector(23 downto 0) := SPACE_24;
     signal input_count       : integer range 0 to 3 := 0;
     signal pontos           : integer range 0 to 8 := 0;
     signal questao_atual    : integer range 0 to 7 := 0;
@@ -274,6 +284,7 @@ architecture Behavioral of Quiz_Core_Minimal is
         return resultado;
     end function;
 
+
 begin
 
     questao_index  <= questao_atual;
@@ -291,7 +302,7 @@ begin
         if reset_n = '0' then
             state <= S_IDLE;
             safeguard_counter <= 0;
-            input_buffer <= (others => CHAR_SPACE);
+            input_buffer <= SPACE_24;
             input_count <= 0;
             pontos <= 0;
             questao_atual <= 0;
@@ -333,9 +344,9 @@ begin
                                 menu_digit := digito_para_ascii(key_value);
                                 menu_has_digit := true;
                                 display_linha1_reg <= MSG_MENU_TITLE;
-                                display_linha2_reg(127 downto 64) <= X"4E6976656C3A20"; -- "Nivel: "
+                                display_linha2_reg(127 downto 64) <= X"4E6976656C3A2020"; -- "Nivel: "
                                 display_linha2_reg(63 downto 56) <= menu_digit;
-                                display_linha2_reg(55 downto 0) <= (others => CHAR_SPACE);
+                                display_linha2_reg(55 downto 0) <= SPACE_56;
                                 update_req_reg <= '1';
                             
                             when "1111" =>
@@ -361,7 +372,7 @@ begin
                                     end case;
                                     
                                     questao_atual <= 0;
-                                    input_buffer <= (others => CHAR_SPACE);
+                                    input_buffer <= SPACE_24;
                                     input_count <= 0;
                                     pontos <= 0;
                                     
@@ -412,7 +423,7 @@ begin
                                 end if;
                             
                             when "1010" =>
-                                input_buffer <= (others => CHAR_SPACE);
+                                input_buffer <= SPACE_24;
                                 input_count <= 0;
                                 display_linha2_reg <= formatar_resposta(input_buffer);
                                 update_req_reg <= '1';
@@ -440,7 +451,7 @@ begin
                     if key_valid = '1' and key_value = "1110" then
                         if questao_atual < total_questoes - 1 then
                             questao_atual <= questao_atual + 1;
-                            input_buffer <= (others => CHAR_SPACE);
+                            input_buffer <= SPACE_24;
                             input_count <= 0;
                             state <= S_SAFEGUARD;
                             next_state <= S_QUESTION;
@@ -465,7 +476,7 @@ begin
                     display_linha2_reg(71 downto 56) <= int_to_ascii_2digitos(pontos);
                     display_linha2_reg(55 downto 48) <= CHAR_SLASH;
                     display_linha2_reg(47 downto 32) <= int_to_ascii_2digitos(total_questoes);
-                    display_linha2_reg(31 downto 0) <= (others => CHAR_SPACE);
+                    display_linha2_reg(31 downto 0) <= SPACE_32;
                     
                     update_req_reg <= '1';
                     
@@ -474,7 +485,7 @@ begin
                         next_state <= S_IDLE;
                         safeguard_counter <= SAFETY_CYCLES;
                         questao_atual <= 0;
-                        input_buffer <= (others => CHAR_SPACE);
+                        input_buffer <= SPACE_24;
                         input_count <= 0;
                         pontos <= 0;
                     end if;

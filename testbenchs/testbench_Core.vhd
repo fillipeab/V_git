@@ -35,27 +35,6 @@ architecture Behavioral of tb_Quiz_Core_Minimal is
     signal tests_passed : integer := 0;
     signal tests_failed : integer := 0;
     
-    -- Procedimento para clock
-    procedure clock_cycle(n : integer := 1) is
-    begin
-        for i in 1 to n loop
-            clk <= '0';
-            wait for CLK_PERIOD/2;
-            clk <= '1';
-            wait for CLK_PERIOD/2;
-        end loop;
-    end procedure;
-    
-    -- Procedimento para enviar tecla
-    procedure send_key(key : std_logic_vector(3 downto 0)) is
-    begin
-        key_value <= key;
-        key_valid <= '1';
-        clock_cycle(1);
-        key_valid <= '0';
-        clock_cycle(1);
-    end procedure;
-    
     -- Função para comparar strings
     function compare_strings(
         str1 : std_logic_vector(127 downto 0);
@@ -124,6 +103,24 @@ begin
             test_number <= test_number + 1;
         end procedure;
         
+        -- Procedimento para ciclos de clock (substitui o procedimento anterior)
+        procedure wait_cycles(n : integer) is
+        begin
+            for i in 1 to n loop
+                wait until rising_edge(clk);
+            end loop;
+        end procedure;
+        
+        -- Procedimento para enviar tecla
+        procedure send_key(key : std_logic_vector(3 downto 0)) is
+        begin
+            key_value <= key;
+            key_valid <= '1';
+            wait_cycles(1);
+            key_valid <= '0';
+            wait_cycles(1);
+        end procedure;
+        
     begin
         -- Inicialização
         reset_n <= '0';
@@ -132,12 +129,12 @@ begin
         key_valid <= '0';
         
         -- Aguardar estabilização
-        clock_cycle(5);
+        wait_cycles(5);
         
         -- TESTE 1: Reset
         report "TESTE 1: Verificando reset inicial" severity note;
         reset_n <= '1';
-        clock_cycle(2);
+        wait_cycles(2);
         
         verify(quiz_finished = '0', "Quiz finished deve ser 0 apos reset");
         verify(display_linha1 = MSG_PRESS_START, "Display linha1 deve mostrar mensagem de inicio");
@@ -146,11 +143,11 @@ begin
         -- TESTE 2: Pressionar start
         report "TESTE 2: Testando botao start" severity note;
         btn_start <= '1';
-        clock_cycle(2);
+        wait_cycles(2);
         btn_start <= '0';
         
         -- Aguardar alguns ciclos para atualização
-        clock_cycle(3);
+        wait_cycles(3);
         
         verify(compare_strings(display_linha1, MSG_MENU_TITLE), 
                "Deve mostrar titulo do menu apos start");
@@ -161,7 +158,7 @@ begin
         report "TESTE 3: Testando selecao de dificuldade" severity note;
         send_key("0010");  -- Tecla 2
         
-        clock_cycle(3);
+        wait_cycles(3);
         verify(lcd_update_req = '1' or lcd_update_req = '0', "LCD update deve funcionar");
         
         -- TESTE 4: Confirmar selecao com Enter
@@ -169,13 +166,13 @@ begin
         send_key("1110");  -- Enter
         
         -- Aguardar ciclos de segurança
-        clock_cycle(SAFETY_CYCLES + 2);
+        wait_cycles(SAFETY_CYCLES + 2);
         
         -- Configurar primeira questão para teste
         questao_texto1 <= X"4E6F7661207175657374616F203120202020"; -- "Nova questao 1"
         questao_resposta <= X"37";  -- Resposta = 7
         
-        clock_cycle(5);
+        wait_cycles(5);
         
         verify(questao_index = 0, "Questao index deve ser 0 na primeira questao");
         
@@ -184,7 +181,7 @@ begin
         
         -- Digitar resposta 7
         send_key("0111");  -- Tecla 7
-        clock_cycle(2);
+        wait_cycles(2);
         
         -- Verificar buffer de entrada
         verify(display_linha2(15*8+7 downto 15*8) = CHAR_7, 
@@ -194,7 +191,7 @@ begin
         report "TESTE 6: Testando tecla Clear" severity note;
         send_key("1111");  -- Clear
         
-        clock_cycle(2);
+        wait_cycles(2);
         verify(display_linha2(15*8+7 downto 15*8) = CHAR_SPACE, 
                "Digito deve ser apagado");
         
@@ -204,7 +201,7 @@ begin
         send_key("0000");  -- 0
         send_key("0001");  -- 1
         
-        clock_cycle(3);
+        wait_cycles(3);
         verify(display_linha2(15*8+7 downto 15*8) = CHAR_2, "Centena deve ser 2");
         verify(display_linha2(14*8+7 downto 14*8) = CHAR_0, "Dezena deve ser 0");
         verify(display_linha2(13*8+7 downto 13*8) = CHAR_1, "Unidade deve ser 1");
@@ -214,7 +211,7 @@ begin
         send_key("1110");  -- Enter
         
         -- Aguardar verificação
-        clock_cycle(5);
+        wait_cycles(5);
         
         verify(compare_strings(display_linha1, MSG_WRONG), 
                "Deve mostrar mensagem de erro para resposta incorreta");
@@ -232,7 +229,7 @@ begin
         -- Ir para próxima questão
         send_key("1110");  -- Enter
         
-        clock_cycle(SAFETY_CYCLES + 5);
+        wait_cycles(SAFETY_CYCLES + 5);
         
         -- TESTE 10: Entrada de resposta correta
         report "TESTE 10: Testando resposta correta" severity note;
@@ -241,7 +238,7 @@ begin
         send_key("0000");  -- 0
         send_key("1110");  -- Enter
         
-        clock_cycle(5);
+        wait_cycles(5);
         verify(compare_strings(display_linha1, MSG_CORRECT), 
                "Deve mostrar mensagem de correto para resposta 100");
         
@@ -251,7 +248,7 @@ begin
         for i in 2 to 7 loop
             -- Avançar para próxima questão
             send_key("1110");  -- Enter
-            clock_cycle(SAFETY_CYCLES + 2);
+            wait_cycles(SAFETY_CYCLES + 2);
             
             -- Configurar nova questão
             questao_texto1 <= X"4E6F7661207175657374616F20" & 
@@ -259,7 +256,7 @@ begin
                             X"202020"; -- "Nova questao X"
             questao_resposta <= std_logic_vector(to_unsigned(i*10, 8));
             
-            clock_cycle(2);
+            wait_cycles(2);
             
             -- Verificar índice da questão
             verify(questao_index = i, "Questao index deve ser " & integer'image(i));
@@ -289,14 +286,14 @@ begin
             end case;
             
             send_key("1110");  -- Enter
-            clock_cycle(5);
+            wait_cycles(5);
         end loop;
         
         -- TESTE 12: Final do quiz
         report "TESTE 12: Verificando tela final" severity note;
         send_key("1110");  -- Enter para ir para final
         
-        clock_cycle(SAFETY_CYCLES + 5);
+        wait_cycles(SAFETY_CYCLES + 5);
         
         verify(quiz_finished = '1', "Quiz finished deve ser 1 no final");
         verify(display_linha1 = MSG_LEVEL_MED, 
@@ -312,7 +309,7 @@ begin
         -- Voltar ao menu inicial
         send_key("1110");  -- Enter para voltar ao início
         
-        clock_cycle(SAFETY_CYCLES + 5);
+        wait_cycles(SAFETY_CYCLES + 5);
         
         -- Verificar se voltou ao início
         verify(compare_strings(display_linha1, MSG_PRESS_START), 
@@ -323,21 +320,21 @@ begin
         
         -- Iniciar novo quiz
         btn_start <= '1';
-        clock_cycle(2);
+        wait_cycles(2);
         btn_start <= '0';
-        clock_cycle(3);
+        wait_cycles(3);
         
         -- Selecionar dificuldade 1
         send_key("0001");  -- Tecla 1
         send_key("1110");  -- Enter
         
-        clock_cycle(SAFETY_CYCLES + 2);
+        wait_cycles(SAFETY_CYCLES + 2);
         
         -- Configurar questões
         for i in 0 to 3 loop
             if i > 0 then
                 send_key("1110");  -- Enter para próxima questão
-                clock_cycle(SAFETY_CYCLES + 2);
+                wait_cycles(SAFETY_CYCLES + 2);
             end if;
             
             questao_texto1 <= X"5175657374616F20666163696C20" & 
@@ -345,13 +342,13 @@ begin
                             X"2020"; -- "Questao facil X"
             questao_resposta <= std_logic_vector(to_unsigned(i+1, 8));
             
-            clock_cycle(2);
+            wait_cycles(2);
             
             -- Inserir resposta
             send_key(std_logic_vector(to_unsigned(i+1, 4)));
             send_key("1110");  -- Enter
             
-            clock_cycle(5);
+            wait_cycles(5);
         end loop;
         
         -- TESTE 15: Testar tecla A no menu
@@ -359,14 +356,14 @@ begin
         
         -- Iniciar novo quiz
         btn_start <= '1';
-        clock_cycle(2);
+        wait_cycles(2);
         btn_start <= '0';
-        clock_cycle(3);
+        wait_cycles(3);
         
         -- Pressionar A para cancelar
         send_key("1010");  -- Tecla A
         
-        clock_cycle(3);
+        wait_cycles(3);
         verify(compare_strings(display_linha1, MSG_PRESS_START), 
                "Deve voltar para inicio ao pressionar A no menu");
         

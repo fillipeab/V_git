@@ -280,7 +280,7 @@ begin
         -- Inicialização
         report "==========================================" severity note;
         report "INICIANDO TESTES DO QUIZ_CORE_MINIMAL" severity note;
-        report "VERSÃO BASEADA EM CICLOS DE CLOCK" severity note;
+        report "VERSAO BASEADA EM CICLOS DE CLOCK" severity note;
         report "==========================================" severity note;
         
         -- Reset inicial
@@ -325,7 +325,7 @@ begin
         
         -- Configurar primeira questão
         set_question(0, 
-            X"5175657374616F20312020202020202020",  -- "Questao 1        "
+            X"5175657374616F203120202020202020",  -- "Questao 1        "
             7);  -- Resposta = 7
         
         wait_for_state_change;
@@ -376,7 +376,7 @@ begin
         
         -- Configurar segunda questão
         set_question(1, 
-            X"5175657374616F20322020202020202020",  -- "Questao 2        "
+            X"5175657374616F203220202020202020",  -- "Questao 2        "
             100);  -- Resposta = 100
         
         wait_for_state_change;
@@ -495,11 +495,11 @@ begin
         if tests_failed = 0 then
             report "SUCESSO: TODOS OS TESTES PASSARAM!" severity note;
         else
-            report "ATENÇÃO: " & integer'image(tests_failed) & " TESTES FALHARAM!" severity error;
+            report "ATENCAO: " & integer'image(tests_failed) & " TESTES FALHARAM!" severity error;
         end if;
         
         report "==========================================" severity note;
-        report "FIM DA SIMULAÇÃO" severity note;
+        report "FIM DA SIMULACAO" severity note;
         report "==========================================" severity note;
         
         wait;

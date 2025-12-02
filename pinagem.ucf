@@ -1,0 +1,93 @@
+# --- Clock Principal ---
+NET "clk" LOC = E12;
+NET "clk" IOSTANDARD = LVCMOS33;
+NET "clk" PERIOD = 20 ns;
+
+# --- Reset (Switch 0) ---
+NET "reset_n" LOC = V8;
+NET "reset_n" IOSTANDARD = LVCMOS33;
+
+# --- Teclado PS/2 ---
+NET "ps2_clk" LOC = W6;
+NET "ps2_clk" IOSTANDARD = LVCMOS33;
+NET "ps2_clk" DRIVE = 8;
+NET "ps2_clk" SLEW = SLOW;
+
+NET "ps2_data" LOC = V6;
+NET "ps2_data" IOSTANDARD = LVCMOS33;
+NET "ps2_data" DRIVE = 8;
+NET "ps2_data" SLEW = SLOW;
+
+# --- Botão Start (Btn North) ---
+NET "btn_start" LOC = T14;
+NET "btn_start" IOSTANDARD = LVCMOS33;
+
+# --- Hack LCD Busy (Switch 1) ---
+# Deixe a chave SW1 para baixo (OFF)
+NET "lcd_busy" LOC = V9;
+NET "lcd_busy" IOSTANDARD = LVCMOS33;
+
+# --- Interface LCD: Controle ---
+NET "lcd_write_en_out" LOC = AB4;
+NET "lcd_write_en_out" IOSTANDARD = LVCMOS33;
+NET "lcd_write_en_out" DRIVE = 12;
+NET "lcd_write_en_out" SLEW = SLOW;
+
+NET "lcd_rs_out" LOC = Y14;
+NET "lcd_rs_out" IOSTANDARD = LVCMOS33;
+NET "lcd_rs_out" DRIVE = 12;
+NET "lcd_rs_out" SLEW = SLOW;
+
+NET "lcd_rw_out" LOC = W13;
+NET "lcd_rw_out" IOSTANDARD = LVCMOS33;
+NET "lcd_rw_out" DRIVE = 12;
+NET "lcd_rw_out" SLEW = SLOW;
+
+# --- Interface LCD: Dados (8 bits) ---
+# DB7
+NET "lcd_data_out[7]" LOC = Y15;
+NET "lcd_data_out[7]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[7]" DRIVE = 12;
+NET "lcd_data_out[7]" SLEW = SLOW;
+
+# DB6
+NET "lcd_data_out[6]" LOC = AB16;
+NET "lcd_data_out[6]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[6]" DRIVE = 12;
+NET "lcd_data_out[6]" SLEW = SLOW;
+
+# DB5
+NET "lcd_data_out[5]" LOC = Y16;
+NET "lcd_data_out[5]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[5]" DRIVE = 12;
+NET "lcd_data_out[5]" SLEW = SLOW;
+
+# DB4
+NET "lcd_data_out[4]" LOC = AA12;
+NET "lcd_data_out[4]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[4]" DRIVE = 12;
+NET "lcd_data_out[4]" SLEW = SLOW;
+
+# DB3 (Pino AB12 na S3AN)
+NET "lcd_data_out[3]" LOC = AB12;
+NET "lcd_data_out[3]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[3]" DRIVE = 12;
+NET "lcd_data_out[3]" SLEW = SLOW;
+
+# DB2 (Pino AB17 na S3AN)
+NET "lcd_data_out[2]" LOC = AB17;
+NET "lcd_data_out[2]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[2]" DRIVE = 12;
+NET "lcd_data_out[2]" SLEW = SLOW;
+
+# DB1 (Pino AB18 na S3AN)
+NET "lcd_data_out[1]" LOC = AB18;
+NET "lcd_data_out[1]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[1]" DRIVE = 12;
+NET "lcd_data_out[1]" SLEW = SLOW;
+
+# DB0 (Pino Y13 na S3AN)
+NET "lcd_data_out[0]" LOC = Y13;
+NET "lcd_data_out[0]" IOSTANDARD = LVCMOS33;
+NET "lcd_data_out[0]" DRIVE = 12;
+NET "lcd_data_out[0]" SLEW = SLOW;

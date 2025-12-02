@@ -56,7 +56,7 @@ begin
     core_inst: entity work.Quiz_Core_Minimal
         generic map (
             MAX_QUESTOES_BANCO => 8,
-            SAFETY_CYCLES => SAFETY_CYCLES, -- Repassa
+            SAFETY_CYCLES => SAFETY_CYCLES -- Repassa
         )
         port map (
        

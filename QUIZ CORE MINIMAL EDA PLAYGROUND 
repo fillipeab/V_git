@@ -1,0 +1,248 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.Quiz_Strings_PKG.all;
+
+entity Quiz_Core_Minimal is
+    generic (
+        MAX_QUESTOES_BANCO : integer := 8;
+        SAFETY_CYCLES      : integer := 50
+    );
+    port (
+        clk, reset_n : in std_logic;
+        key_value : in std_logic_vector(3 downto 0);
+        key_valid, btn_start : in std_logic;
+        questao_texto1 : in std_logic_vector(127 downto 0);
+        questao_resposta : in std_logic_vector(7 downto 0);
+        questao_index : out integer;
+        display_linha1, display_linha2 : out std_logic_vector(127 downto 0);
+        lcd_update_req, quiz_finished : out std_logic
+    );
+end entity Quiz_Core_Minimal;
+
+architecture Behavioral of Quiz_Core_Minimal is
+    type T_QUIZ_STATE is (S_IDLE, S_MENU, S_QUESTION, S_INPUT, S_CHECK, S_RESULT, S_FINISH, S_SAFEGUARD);
+    signal state : T_QUIZ_STATE := S_IDLE;
+    signal safeguard_counter : integer := 0; 
+    signal input_buffer : std_logic_vector(23 downto 0) := SPACE_24;
+    signal input_count : integer range 0 to 3 := 0;
+    signal pontos, questao_atual : integer range 0 to 8 := 0;
+    signal total_questoes : integer range 4 to 8 := 8;
+    signal nivel_dificuldade : integer range 1 to 3 := 1;
+    signal display_linha1_reg, display_linha2_reg : std_logic_vector(127 downto 0) := (others => '0');
+    signal update_req_reg : std_logic := '0';
+    signal next_state : T_QUIZ_STATE;
+
+    function digito_para_ascii(digito : std_logic_vector(3 downto 0)) return std_logic_vector is
+    begin
+        case digito is
+            when "0000" => return CHAR_0; when "0001" => return CHAR_1; when "0010" => return CHAR_2;
+            when "0011" => return CHAR_3; when "0100" => return CHAR_4; when "0101" => return CHAR_5;
+            when "0110" => return CHAR_6; when "0111" => return CHAR_7; when "1000" => return CHAR_8;
+            when "1001" => return CHAR_9; when others => return CHAR_SPACE;
+        end case;
+    end function;
+
+    -- CORRECAO VISUAL: ESCREVE NO FINAL DA LINHA (Indices 5, 4, 3)
+    function formatar_resposta(buffer_in : std_logic_vector(23 downto 0)) return std_logic_vector is
+        variable linha : std_logic_vector(127 downto 0);
+    begin
+        linha := MSG_RESP_TEMP; -- "Resposta:       "
+        -- Escreve o primeiro digito (mais a esquerda) no indice 5
+        linha(5*8+7 downto 5*8) := buffer_in(23 downto 16);
+        -- Segundo digito no indice 4
+        linha(4*8+7 downto 4*8) := buffer_in(15 downto 8);
+        -- Terceiro digito no indice 3
+        linha(3*8+7 downto 3*8) := buffer_in(7 downto 0);
+        return linha;
+    end function;
+
+    -- CORRECAO MATEMATICA: ACUMULADOR (1 e 5 vira 15)
+    function calcular_valor(buffer_in : std_logic_vector(23 downto 0)) return integer is
+        variable valor : integer := 0;
+        variable char1, char2, char3 : std_logic_vector(7 downto 0);
+        
+        function ascii_to_int(c: std_logic_vector(7 downto 0)) return integer is
+        begin
+            case c is
+                when CHAR_0 => return 0; when CHAR_1 => return 1; when CHAR_2 => return 2;
+                when CHAR_3 => return 3; when CHAR_4 => return 4; when CHAR_5 => return 5;
+                when CHAR_6 => return 6; when CHAR_7 => return 7; when CHAR_8 => return 8;
+                when CHAR_9 => return 9; when others => return -1;
+            end case;
+        end function;
+        variable d1, d2, d3 : integer;
+    begin
+        char1 := buffer_in(23 downto 16);
+        char2 := buffer_in(15 downto 8);
+        char3 := buffer_in(7 downto 0);
+        
+        d1 := ascii_to_int(char1);
+        d2 := ascii_to_int(char2);
+        d3 := ascii_to_int(char3);
+        
+        if d1 /= -1 then valor := valor * 10 + d1; end if;
+        if d2 /= -1 then valor := valor * 10 + d2; end if;
+        if d3 /= -1 then valor := valor * 10 + d3; end if;
+        
+        return valor;
+    end function;
+
+    function int_to_ascii_2digitos(numero : integer range 0 to 99) return std_logic_vector is
+        variable resultado : std_logic_vector(15 downto 0);
+        variable dezena, unidade : integer;
+    begin
+        if numero < 10 then dezena := 0; unidade := numero;
+        elsif numero < 20 then dezena := 1; unidade := numero - 10;
+        elsif numero < 30 then dezena := 2; unidade := numero - 20;
+        elsif numero < 40 then dezena := 3; unidade := numero - 30;
+        elsif numero < 50 then dezena := 4; unidade := numero - 40;
+        elsif numero < 60 then dezena := 5; unidade := numero - 50;
+        elsif numero < 70 then dezena := 6; unidade := numero - 60;
+        elsif numero < 80 then dezena := 7; unidade := numero - 70;
+        elsif numero < 90 then dezena := 8; unidade := numero - 80;
+        else dezena := 9; unidade := numero - 90; end if;
+        
+        case dezena is
+            when 0 => resultado(15 downto 8) := CHAR_0; when 1 => resultado(15 downto 8) := CHAR_1;
+            when 2 => resultado(15 downto 8) := CHAR_2; when 3 => resultado(15 downto 8) := CHAR_3;
+            when 4 => resultado(15 downto 8) := CHAR_4; when 5 => resultado(15 downto 8) := CHAR_5;
+            when 6 => resultado(15 downto 8) := CHAR_6; when 7 => resultado(15 downto 8) := CHAR_7;
+            when 8 => resultado(15 downto 8) := CHAR_8; when 9 => resultado(15 downto 8) := CHAR_9;
+            when others => resultado(15 downto 8) := CHAR_SPACE;
+        end case;
+        case unidade is
+            when 0 => resultado(7 downto 0) := CHAR_0; when 1 => resultado(7 downto 0) := CHAR_1;
+            when 2 => resultado(7 downto 0) := CHAR_2; when 3 => resultado(7 downto 0) := CHAR_3;
+            when 4 => resultado(7 downto 0) := CHAR_4; when 5 => resultado(7 downto 0) := CHAR_5;
+            when 6 => resultado(7 downto 0) := CHAR_6; when 7 => resultado(7 downto 0) := CHAR_7;
+            when 8 => resultado(7 downto 0) := CHAR_8; when 9 => resultado(7 downto 0) := CHAR_9;
+            when others => resultado(7 downto 0) := CHAR_SPACE;
+        end case;
+        return resultado;
+    end function;
+
+begin
+    questao_index <= questao_atual; display_linha1 <= display_linha1_reg;
+    display_linha2 <= display_linha2_reg; lcd_update_req <= update_req_reg;
+    quiz_finished <= '1' when state = S_FINISH else '0';
+
+    process(clk, reset_n)
+        variable resposta_usuario, resposta_correta : integer;
+        variable menu_digit : std_logic_vector(7 downto 0) := CHAR_SPACE;
+        variable menu_has_digit : boolean := false;
+        variable temp_buffer : std_logic_vector(23 downto 0);
+        variable temp_count, old_count : integer range 0 to 3;
+    begin
+        if reset_n = '0' then
+            state <= S_IDLE; safeguard_counter <= 0; input_buffer <= SPACE_24; input_count <= 0;
+            pontos <= 0; questao_atual <= 0; nivel_dificuldade <= 1; total_questoes <= 4;
+            display_linha1_reg <= MSG_PRESS_START; display_linha2_reg <= MSG_TO_START;
+            update_req_reg <= '0'; next_state <= S_IDLE; menu_digit := CHAR_SPACE; menu_has_digit := false;
+        elsif rising_edge(clk) then
+            update_req_reg <= '0'; temp_buffer := input_buffer; temp_count := input_count;
+            case state is
+                when S_SAFEGUARD =>
+                    if safeguard_counter > 0 then safeguard_counter <= safeguard_counter - 1; else state <= next_state; end if;
+                when S_IDLE =>
+                    if display_linha1_reg /= MSG_PRESS_START or display_linha2_reg /= MSG_TO_START then
+                        display_linha1_reg <= MSG_PRESS_START; display_linha2_reg <= MSG_TO_START; update_req_reg <= '1';
+                    end if;
+                    if btn_start = '1' then
+                        state <= S_MENU; display_linha1_reg <= MSG_MENU_TITLE; display_linha2_reg <= MSG_MENU_OPTS;
+                        update_req_reg <= '1'; menu_digit := CHAR_SPACE; menu_has_digit := false;
+                    end if;
+                when S_MENU =>
+                    if key_valid = '1' then
+                        case key_value is
+                            when "0001"|"0010"|"0011" =>
+                                menu_digit := digito_para_ascii(key_value); menu_has_digit := true;
+                                display_linha1_reg <= MSG_MENU_TITLE;
+                                display_linha2_reg(127 downto 64) <= X"4E6976656C3A2020";
+                                display_linha2_reg(63 downto 56) <= menu_digit;
+                                display_linha2_reg(55 downto 0) <= SPACE_56; update_req_reg <= '1';
+                            when "1111" =>
+                                menu_digit := CHAR_SPACE; menu_has_digit := false;
+                                display_linha1_reg <= MSG_MENU_TITLE; display_linha2_reg <= MSG_MENU_OPTS; update_req_reg <= '1';
+                            when "1110" =>
+                                if menu_has_digit then
+                                    case menu_digit is
+                                        when CHAR_1 => nivel_dificuldade <= 1; total_questoes <= 4;
+                                        when CHAR_2 => nivel_dificuldade <= 2; total_questoes <= 6;
+                                        when CHAR_3 => nivel_dificuldade <= 3; total_questoes <= 8;
+                                        when others => null;
+                                    end case;
+                                    questao_atual <= 0; input_buffer <= SPACE_24; input_count <= 0; pontos <= 0;
+                                    state <= S_SAFEGUARD; next_state <= S_QUESTION; safeguard_counter <= SAFETY_CYCLES;
+                                end if;
+                            when "1010" => state <= S_IDLE; update_req_reg <= '1';
+                            when others => null;
+                        end case;
+                    end if;
+                when S_QUESTION =>
+                    display_linha1_reg <= questao_texto1; display_linha2_reg <= formatar_resposta(input_buffer);
+                    update_req_reg <= '1'; state <= S_INPUT;
+                when S_INPUT =>
+                    if key_valid = '1' then
+                        case key_value is
+                            when "0000"|"0001"|"0010"|"0011"|"0100"|"0101"|"0110"|"0111"|"1000"|"1001" =>
+                                if temp_count < 3 then
+                                    case temp_count is
+                                        when 0 => temp_buffer(23 downto 16) := digito_para_ascii(key_value);
+                                        when 1 => temp_buffer(15 downto 8) := digito_para_ascii(key_value);
+                                        when 2 => temp_buffer(7 downto 0) := digito_para_ascii(key_value);
+                                        when others => null;
+                                    end case;
+                                    temp_count := temp_count + 1; display_linha2_reg <= formatar_resposta(temp_buffer); update_req_reg <= '1';
+                                end if;
+                            when "1111" =>
+                                if temp_count > 0 then
+                                    old_count := temp_count; temp_count := temp_count - 1;
+                                    case old_count is
+                                        when 1 => temp_buffer(23 downto 16) := CHAR_SPACE;
+                                        when 2 => temp_buffer(15 downto 8) := CHAR_SPACE;
+                                        when 3 => temp_buffer(7 downto 0) := CHAR_SPACE;
+                                        when others => null;
+                                    end case;
+                                    display_linha2_reg <= formatar_resposta(temp_buffer); update_req_reg <= '1';
+                                end if;
+                            when "1110" => if temp_count > 0 then state <= S_CHECK; end if;
+                            when "1010" => temp_buffer := SPACE_24; temp_count := 0; display_linha2_reg <= formatar_resposta(temp_buffer); update_req_reg <= '1';
+                            when others => null;
+                        end case;
+                        input_buffer <= temp_buffer; input_count <= temp_count;
+                    end if;
+                when S_CHECK =>
+                    resposta_usuario := calcular_valor(input_buffer); resposta_correta := to_integer(unsigned(questao_resposta));
+                    if resposta_usuario = resposta_correta then pontos <= pontos + 1; display_linha1_reg <= MSG_CORRECT;
+                    else display_linha1_reg <= MSG_WRONG; end if;
+                    display_linha2_reg <= MSG_NEXT; update_req_reg <= '1'; state <= S_RESULT;
+                when S_RESULT =>
+                    if key_valid = '1' and key_value = "1110" then
+                        if questao_atual < total_questoes - 1 then
+                            questao_atual <= questao_atual + 1; input_buffer <= SPACE_24; input_count <= 0;
+                            state <= S_SAFEGUARD; next_state <= S_QUESTION; safeguard_counter <= SAFETY_CYCLES;
+                        else
+                            state <= S_SAFEGUARD; next_state <= S_FINISH; safeguard_counter <= SAFETY_CYCLES;
+                        end if;
+                    end if;
+                when S_FINISH =>
+                    case nivel_dificuldade is
+                        when 1 => display_linha1_reg <= MSG_LEVEL_EASY; when 2 => display_linha1_reg <= MSG_LEVEL_MED;
+                        when 3 => display_linha1_reg <= MSG_LEVEL_HARD; when others => display_linha1_reg <= MSG_FINISHED;
+                    end case;
+                    display_linha2_reg(127 downto 72) <= MSG_SCORE_PRE;
+                    display_linha2_reg(71 downto 56) <= int_to_ascii_2digitos(pontos);
+                    display_linha2_reg(55 downto 48) <= CHAR_SLASH;
+                    display_linha2_reg(47 downto 32) <= int_to_ascii_2digitos(total_questoes);
+                    display_linha2_reg(31 downto 0) <= SPACE_32; update_req_reg <= '1';
+                    if key_valid = '1' and key_value = "1110" then
+                        state <= S_SAFEGUARD; next_state <= S_IDLE; safeguard_counter <= SAFETY_CYCLES;
+                        questao_atual <= 0; input_buffer <= SPACE_24; input_count <= 0; pontos <= 0;
+                        display_linha1_reg <= MSG_PRESS_START; display_linha2_reg <= MSG_TO_START; update_req_reg <= '1';
+                    end if;
+                when others => null;
+            end case;
+        end if;
+    end process;
+end architecture Behavioral;

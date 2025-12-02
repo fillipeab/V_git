@@ -521,6 +521,61 @@ begin
         verify(quiz_finished = '1', "6.1: Quiz deve finalizar apos 4 questoes");
         send_key("1110", "Voltar ao inicio");
         
+	--------------------------- teste especial 6.1 ----------------
+	
+        -- ==================== TESTE EXTRA: VERIFICAÇÃO DE TIMING ====================
+        report "TESTE EXTRA: Verificacao de timing - leitura APOS atualizacao" severity note;
+        
+        send_key("1010", "Cancelar para teste de timing");
+        press_start;
+        send_key("0001", "Selecionando dificuldade 1");
+        send_key("1110", "Confirmando");
+        
+        -- Responde 3 primeiras questoes normalmente
+        for q in 0 to 2 loop
+            if q > 0 then
+                send_key("1110", "Proxima questao " & integer'image(q));
+            end if;
+            
+            set_question(q, X"54657374652054696D696E6720312020", q + 1);
+            send_key(std_logic_vector(to_unsigned(q + 1, 4)), "Resposta " & integer'image(q + 1));
+            send_key("1110", "Enviar");
+            wait_stabilization(15);
+        end loop;
+        
+        -- ULTIMA QUESTAO (q = 3) - MONITORAMENTO DETALHADO
+        report "=== ULTIMA QUESTAO - MONITORAMENTO DETALHADO ===" severity note;
+        send_key("1110", "Proxima questao 3");
+        set_question(3, X"554C54494D41205155455354414F2020", 4);
+        send_key("0100", "Resposta 4");
+        
+        -- 1. Estado ANTES de enviar
+        report "ANTES de enviar: quiz_finished = " & std_logic'image(quiz_finished) severity note;
+        
+        -- 2. Envia resposta
+        send_key("1110", "Enviar resposta final");
+        
+        -- 3. Monitora em MULTIPLOS pontos de tempo
+        for i in 1 to 20 loop
+            wait_clocks(1);
+            report "Clock " & integer'image(i) & " APOS enviar: quiz_finished = " & 
+                   std_logic'image(quiz_finished) & 
+                   ", questao_index = " & integer'image(questao_index) severity note;
+        end loop;
+        
+        -- 4. Espera estabilizacao completa
+        wait_clocks(SAFETY_CYCLES + 5);
+        
+        -- 5. Verifica FINAL (deve ser APOS tudo ter estabilizado)
+        verify(quiz_finished = '1', "EXTRA: quiz_finished deve ser 1 apos ultima questao e estabilizacao");
+        
+        -- 6. Agora volta ao inicio
+        send_key("1110", "Voltar ao inicio APOS verificacao");
+        wait_stabilization;
+        verify(quiz_finished = '0', "EXTRA: quiz_finished deve ser 0 apos voltar ao inicio");
+		
+		---------------------------teste especial 6.1----------------
+		
         report "TESTE 6.2: Dificuldade 2 (Medio - 6 questoes)" severity note;
         press_start;
         send_key("0010", "Selecionando dificuldade 2");

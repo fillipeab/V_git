@@ -551,6 +551,54 @@ begin
         verify(quiz_finished = '1', "6.2: Quiz deve finalizar apos 6 questoes");
         send_key("1110", "Voltar ao inicio");
         
+	
+        report "TESTE 6.3: Dificuldade 3 (Dificil - 8 questoes)" severity note;
+        
+        send_key("1010", "Cancelar para testar dificuldade 3");
+        press_start;
+        send_key("0011", "Selecionando dificuldade 3");
+        send_key("1110", "Confirmando");
+        
+        for q in 0 to 7 loop
+            if q > 0 then
+                send_key("1110", "Proxima questao " & integer'image(q));
+            end if;
+            
+            set_question(q, X"4469666963756C646164652033202020", q * 7);
+            
+            -- Digita resposta
+            if q * 7 < 10 then
+                send_key("0000", "0");
+                send_key(std_logic_vector(to_unsigned(q * 7, 4)), "Unidade");
+            elsif q * 7 < 100 then
+                send_key(std_logic_vector(to_unsigned((q * 7) / 10, 4)), "Dezena");
+                send_key(std_logic_vector(to_unsigned((q * 7) mod 10, 4)), "Unidade");
+            else
+                -- Para 56 (q=8)
+                send_key("0101", "5");
+                send_key("0110", "6");
+            end if;
+            
+            -- PARA A ULTIMA QUESTAO (q=7): verificar ANTES do ENTER final
+            if q = 7 then  -- Ultima questao (8a)
+                send_key("1110", "Enviar resposta FINAL da dificuldade 3");
+                wait_stabilization(20);  -- Espera extra
+                
+                -- VERIFICACAO CRITICA: deve estar em S_FINISH
+                verify(quiz_finished = '1', "6.3.1: quiz_finished deve ser 1 apos 8 questoes");
+                
+                -- Agora sim, volta ao inicio
+                send_key("1110", "Voltar ao inicio - APOS verificacao");
+            else
+                send_key("1110", "Enviar resposta normal");
+                wait_stabilization(15);
+            end if;
+        end loop;
+        
+        -- Verifica que voltou ao inicio
+        wait_stabilization;
+        verify(quiz_finished = '0', "6.3.2: quiz_finished deve ser 0 apos voltar ao inicio");
+		
         -- ==================== SECAO 7: TESTES DE BOUNDARY CONDITIONS ====================
         report "SECAO 7: TESTES DE CONDICOES LIMITE E ERRO" severity note;
         

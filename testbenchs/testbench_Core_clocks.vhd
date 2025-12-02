@@ -191,10 +191,10 @@ begin
             test_number <= test_number + 1;
         end procedure;
         
-        -- Procedimento para mostrar estado do display
-        procedure show_display_state(label : string) is
+        -- Procedimento para mostrar estado do display (não usar 'label' como nome)
+        procedure show_display_state(msg : string) is
         begin
-            report "CLK " & integer'image(clock_count) & " - " & label & ":" severity note;
+            report "CLK " & integer'image(clock_count) & " - " & msg & ":" severity note;
             report "  Linha 1: '" & display_to_string(display_linha1) & "'" severity note;
             report "  Linha 2: '" & display_to_string(display_linha2) & "'" severity note;
             report "  questao_index: " & integer'image(questao_index) & 

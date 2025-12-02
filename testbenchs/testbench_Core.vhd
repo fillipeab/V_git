@@ -169,7 +169,7 @@ begin
         wait_cycles(SAFETY_CYCLES + 2);
         
         -- Configurar primeira questão para teste
-        questao_texto1 <= X"4E6F7661207175657374616F203120202020"; -- "Nova questao 1"
+        questao_texto1 <= X"4E6F7661207175657374616F20312020"; -- "Nova questao 1"
         questao_resposta <= X"37";  -- Resposta = 7
         
         wait_cycles(5);
@@ -223,7 +223,7 @@ begin
         send_key("1010");  -- Tecla A
         
         -- Voltar ao input (simulando nova questão)
-        questao_texto1 <= X"4E6F7661207175657374616F203220202020"; -- "Nova questao 2"
+        questao_texto1 <= X"4E6F7661207175657374616F20322020"; -- "Nova questao 2"
         questao_resposta <= X"64";  -- Resposta = 100
         
         -- Ir para próxima questão

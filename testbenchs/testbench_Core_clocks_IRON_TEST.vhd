@@ -500,6 +500,7 @@ begin
         send_key("1110", "Confirmando");
         
         for q in 0 to 3 loop
+		
             if q > 0 then
                 send_key("1110", "Proxima questao " & integer'image(q));
             end if;
@@ -513,12 +514,14 @@ begin
                 send_key("0001", "1");
                 send_key(std_logic_vector(to_unsigned(q, 4)), "Unidade");
             end if;
-            
             send_key("1110", "Enviar resposta");
             wait_stabilization(15);
-        end loop;
-        
+			
+		end loop;
+		send_key("1110", "Enviar resposta");
+        wait_clocks(SAFETY_CYCLES + 5);
         verify(quiz_finished = '1', "6.1: Quiz deve finalizar apos 4 questoes");
+		
         send_key("1110", "Voltar ao inicio");
         
 	--------------------------- teste especial 6.1 ----------------

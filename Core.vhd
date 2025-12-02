@@ -65,6 +65,9 @@ use work.Quiz_Strings_PKG.all;
 -- =============================================================
 -- PARTE 2: QUIZ CORE SIMPLIFICADO - COM CONTROLE DE TIMING MAS SEM LCD BUSY
 -- =============================================================
+-- =============================================================
+-- PARTE 2: QUIZ CORE SIMPLIFICADO - COM CONTROLE DE TIMING MAS SEM LCD BUSY
+-- =============================================================
 
 entity Quiz_Core_Minimal is
     generic (
@@ -298,6 +301,10 @@ begin
         variable resposta_correta : integer;
         variable menu_digit : std_logic_vector(7 downto 0) := CHAR_SPACE;
         variable menu_has_digit : boolean := false;
+        -- Variáveis temporárias para o buffer de entrada
+        variable temp_buffer : std_logic_vector(23 downto 0);
+        variable temp_count : integer range 0 to 3;
+        variable old_count : integer range 0 to 3;
     begin
         if reset_n = '0' then
             state <= S_IDLE;
@@ -308,8 +315,8 @@ begin
             questao_atual <= 0;
             nivel_dificuldade <= 1;
             total_questoes <= 4;
-            display_linha1_reg <= (others => '0');
-            display_linha2_reg <= (others => '0');
+            display_linha1_reg <= MSG_PRESS_START;  -- Corrigido: mostra mensagem inicial
+            display_linha2_reg <= MSG_TO_START;     -- Corrigido: mostra mensagem inicial
             update_req_reg <= '0';
             next_state <= S_IDLE;
             menu_digit := CHAR_SPACE;
@@ -317,6 +324,10 @@ begin
             
         elsif rising_edge(clk) then
             update_req_reg <= '0';
+            
+            -- Inicializa variáveis temporárias com os valores atuais
+            temp_buffer := input_buffer;
+            temp_count := input_count;
             
             case state is
                 
@@ -328,6 +339,13 @@ begin
                     end if;
                 
                 when S_IDLE =>
+                    -- CORREÇÃO: Sempre mostrar tela inicial quando no estado IDLE
+                    if display_linha1_reg /= MSG_PRESS_START or display_linha2_reg /= MSG_TO_START then
+                        display_linha1_reg <= MSG_PRESS_START;
+                        display_linha2_reg <= MSG_TO_START;
+                        update_req_reg <= '1';
+                    end if;
+                    
                     if btn_start = '1' then
                         state <= S_MENU;
                         display_linha1_reg <= MSG_MENU_TITLE;
@@ -401,35 +419,51 @@ begin
                     if key_valid = '1' then
                         case key_value is
                             when "0000" | "0001" | "0010" | "0011" | "0100" | "0101" | "0110" | "0111" | "1000" | "1001" =>
-                                if input_count < 3 then
-                                    input_buffer((2-input_count)*8+7 downto (2-input_count)*8) 
-                                        <= digito_para_ascii(key_value);
-                                    input_count <= input_count + 1;
-                                    display_linha2_reg <= formatar_resposta(input_buffer);
+                                if temp_count < 3 then
+                                    -- CORREÇÃO: Usar variável temporária para cálculo correto da posição
+                                    case temp_count is
+                                        when 0 => temp_buffer(23 downto 16) := digito_para_ascii(key_value);
+                                        when 1 => temp_buffer(15 downto 8) := digito_para_ascii(key_value);
+                                        when 2 => temp_buffer(7 downto 0) := digito_para_ascii(key_value);
+                                        when others => null;
+                                    end case;
+                                    temp_count := temp_count + 1;
+                                    display_linha2_reg <= formatar_resposta(temp_buffer);
                                     update_req_reg <= '1';
                                 end if;
                             
                             when "1111" =>
-                                if input_count > 0 then
-                                    input_count <= input_count - 1;
-                                    input_buffer((2-input_count+1)*8+7 downto (2-input_count+1)*8) <= CHAR_SPACE;
-                                    display_linha2_reg <= formatar_resposta(input_buffer);
+                                if temp_count > 0 then
+                                    old_count := temp_count;
+                                    temp_count := temp_count - 1;
+                                    -- CORREÇÃO: Apagar o dígito correto
+                                    case old_count is
+                                        when 1 => temp_buffer(23 downto 16) := CHAR_SPACE;
+                                        when 2 => temp_buffer(15 downto 8) := CHAR_SPACE;
+                                        when 3 => temp_buffer(7 downto 0) := CHAR_SPACE;
+                                        when others => null;
+                                    end case;
+                                    display_linha2_reg <= formatar_resposta(temp_buffer);
                                     update_req_reg <= '1';
                                 end if;
                             
                             when "1110" =>
-                                if input_count > 0 then
+                                if temp_count > 0 then
                                     state <= S_CHECK;
                                 end if;
                             
                             when "1010" =>
-                                input_buffer <= SPACE_24;
-                                input_count <= 0;
-                                display_linha2_reg <= formatar_resposta(input_buffer);
+                                temp_buffer := SPACE_24;
+                                temp_count := 0;
+                                display_linha2_reg <= formatar_resposta(temp_buffer);
                                 update_req_reg <= '1';
                             
                             when others => null;
                         end case;
+                        
+                        -- Atualiza sinais com as variáveis temporárias
+                        input_buffer <= temp_buffer;
+                        input_count <= temp_count;
                     end if;
                 
                 when S_CHECK =>
@@ -480,6 +514,7 @@ begin
                     
                     update_req_reg <= '1';
                     
+                    -- CORREÇÃO: Garantir que o ENTER funcione para voltar ao início
                     if key_valid = '1' and key_value = "1110" then
                         state <= S_SAFEGUARD;
                         next_state <= S_IDLE;
@@ -488,6 +523,10 @@ begin
                         input_buffer <= SPACE_24;
                         input_count <= 0;
                         pontos <= 0;
+                        -- Atualizar display imediatamente para tela inicial
+                        display_linha1_reg <= MSG_PRESS_START;
+                        display_linha2_reg <= MSG_TO_START;
+                        update_req_reg <= '1';
                     end if;
                 
                 when others => null;

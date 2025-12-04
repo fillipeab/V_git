@@ -1,11 +1,11 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
-entity EXEMPLO_LCD_FPGA_EE03 is
+entity LCD_CONTROLER is
     generic (fclk: natural := 50_000_000); -- 50MHz , cristal do kit EE03
     port (
         -- Sinais de sistema
-        clk         : in  bit; 
+        clk         : in  std_logic;  -- CORRIGIDO: de bit para std_logic
         reset_n     : in  std_logic;
         
         -- Interface com Buffer Controller
@@ -19,9 +19,9 @@ entity EXEMPLO_LCD_FPGA_EE03 is
         E           : buffer bit;  
         DB          : out bit_vector(7 downto 0)
     ); 
-end EXEMPLO_LCD_FPGA_EE03;
+end LCD_CONTROLER;
 
-architecture hardware of EXEMPLO_LCD_FPGA_EE03 is
+architecture hardware of LCD_CONTROLER is
     
     -- Tipos de estado
     type state is (
@@ -54,16 +54,23 @@ architecture hardware of EXEMPLO_LCD_FPGA_EE03 is
     signal line2_chars : char_array;
     
     -- Contador para clock do LCD
-    signal lcd_clk_counter : natural range 0 to fclk/1000 := 0;
+    signal lcd_clk_counter : natural range 0 to fclk/500 := 0; -- CORRIGIDO: 500Hz
+    signal e_int           : bit := '0'; -- Sinal interno para E
+    
+    -- Sinal de clock como bit para compatibilidade
+    signal clk_bit : bit;
     
 begin
 
-    -- Processo para gerar clock E (500Hz)
-    process (clk)
+    -- Conversão de std_logic para bit
+    clk_bit <= '1' when clk = '1' else '0';
+
+    -- Processo para gerar clock E (500Hz) - CORRIGIDO
+    process (clk_bit)
     begin
-        if (clk' event and clk = '1') then 
-            if lcd_clk_counter = fclk/1000 - 1 then
-                E <= not E;
+        if (clk_bit' event and clk_bit = '1') then 
+            if lcd_clk_counter = (fclk/500)/2 - 1 then  -- 500Hz = 50M/100,000
+                e_int <= not e_int;
                 lcd_clk_counter <= 0;
             else
                 lcd_clk_counter <= lcd_clk_counter + 1;
@@ -71,15 +78,17 @@ begin
         end if;
     end process;
     
+    E <= e_int;
+    
     -- Processo para capturar dados quando update_cmd chega
-    process (clk, reset_n)
+    process (clk_bit, reset_n)
     begin
         if reset_n = '0' then
             write_enable <= '0';
             data_reg1 <= (others => '0');
             data_reg2 <= (others => '0');
-        elsif rising_edge(clk) then
-            if update_cmd = '1' and busy = '0' then
+        elsif rising_edge(clk_bit) then
+            if update_cmd = '1' then  -- Não verificar busy aqui
                 data_reg1 <= data_line1;
                 data_reg2 <= data_line2;
                 write_enable <= '1';
@@ -101,12 +110,12 @@ begin
     end process;
     
     -- Processo de transição de estado (sincronizado com E)
-    process (E, reset_n)
+    process (e_int, reset_n)
     begin
         if reset_n = '0' then
             pr_state <= FunctionSet1;
             char_index <= 0;
-        elsif (E' event and E = '1') then
+        elsif (e_int' event and e_int = '1') then
             pr_state <= nx_state;
             
             -- Incrementar índice de caractere nos estados de escrita
@@ -127,11 +136,17 @@ begin
         RS <= '0';
         RW <= '0';
         DB <= (others => '0');
-        busy <= '1'; -- Por padrão, sempre ocupado até inicialização completa
+        
+        -- Lógica do sinal busy - CORRIGIDA
+        if pr_state = IDLE and write_enable = '0' then
+            busy <= '0';
+        else
+            busy <= '1';
+        end if;
         
         case pr_state is
             
-            -- Estados de inicialização
+            -- Estados de inicialização (mantidos como original)
             when FunctionSet1 => 
                 DB <= "00111000";
                 nx_state <= FunctionSet2;
@@ -222,7 +237,6 @@ begin
             
             -- Estado ocioso
             when IDLE =>
-                busy <= '0'; -- Agora está pronto
                 if write_enable = '1' then
                     nx_state <= SetAddressLine1;
                 else
@@ -305,7 +319,7 @@ architecture Behavioral of lcd_buffer_controller is
          std_logic_vector(255 downto 0); -- Concatena line1 + line2
     
     -- Sinais do buffer FIFO
-    signal buffer_fifo    : buffer_array_t;
+    signal buffer_fifo    : buffer_array_t := (others => (others => '0'));
     signal write_ptr      : integer range 0 to BUFFER_SIZE-1 := 0;
     signal read_ptr       : integer range 0 to BUFFER_SIZE-1 := 0;
     signal buffer_count   : integer range 0 to BUFFER_SIZE := 0;
@@ -313,7 +327,7 @@ architecture Behavioral of lcd_buffer_controller is
     signal buffer_full    : std_logic;
     
     -- Registro do último conteúdo enviado ao LCD
-    signal last_sent_data : std_logic_vector(255 downto 0);
+    signal last_sent_data : std_logic_vector(255 downto 0) := (others => '0');
     signal last_sent_valid : std_logic := '0';
     
     -- Sinais de controle
@@ -321,8 +335,8 @@ architecture Behavioral of lcd_buffer_controller is
     signal current_state, next_state : state_t;
     
     -- Sinais de dados temporários
-    signal current_data1  : std_logic_vector(127 downto 0);
-    signal current_data2  : std_logic_vector(127 downto 0);
+    signal current_data1  : std_logic_vector(127 downto 0) := (others => '0');
+    signal current_data2  : std_logic_vector(127 downto 0) := (others => '0');
     signal current_combined : std_logic_vector(255 downto 0);
     
     -- Sinal de reset sincronizado
@@ -330,28 +344,30 @@ architecture Behavioral of lcd_buffer_controller is
     
     -- Sinais para detecção de mudança
     signal same_as_last   : std_logic;
-    signal update_req_sync : std_logic;
-    signal update_req_edge : std_logic;
+    signal update_req_sync : std_logic := '0';
+    signal update_req_edge : std_logic := '0';
 
 begin
 
-    -- Sincronização do reset
+    -- Sincronização do reset - CORRIGIDO (sem inverter)
     process(clk)
     begin
         if rising_edge(clk) then
-            reset_sync <= not reset_n;
+            reset_sync <= reset_n;  -- REMOVIDO o 'not'
         end if;
     end process;
     
-    -- Detecção de borda do update_req
-    process(clk, reset_sync)
+    -- Detecção de borda do update_req - CORRIGIDO
+    process(clk)
     begin
-        if reset_sync = '1' then
-            update_req_sync <= '0';
-            update_req_edge <= '0';
-        elsif rising_edge(clk) then
-            update_req_sync <= update_req;
-            update_req_edge <= update_req and not update_req_sync;
+        if rising_edge(clk) then
+            if reset_sync = '0' then  -- reset ativo baixo
+                update_req_sync <= '0';
+                update_req_edge <= '0';
+            else
+                update_req_sync <= update_req;
+                update_req_edge <= update_req and not update_req_sync;
+            end if;
         end if;
     end process;
     
@@ -366,99 +382,110 @@ begin
     same_as_last <= '1' when (last_sent_valid = '1' and current_combined = last_sent_data) else '0';
     
     -- Processo principal da máquina de estados
-    process(clk, reset_sync)
+    process(clk)
     begin
-        if reset_sync = '1' then
-            current_state <= IDLE;
-            write_ptr <= 0;
-            read_ptr <= 0;
-            buffer_count <= 0;
-            buffer_fifo <= (others => (others => '0'));
-            current_data1 <= (others => '0');
-            current_data2 <= (others => '0');
-            last_sent_data <= (others => '0');
-            last_sent_valid <= '0';
-            lcd_update <= '0';
-            lcd_data1 <= (others => '0');
-            lcd_data2 <= (others => '0');
-            
-        elsif rising_edge(clk) then
-            -- Transição de estado
-            current_state <= next_state;
-            
-            -- Processamento do buffer FIFO
-            case current_state is
+        if rising_edge(clk) then
+            if reset_sync = '0' then  -- reset ativo baixo
+                current_state <= IDLE;
+                write_ptr <= 0;
+                read_ptr <= 0;
+                buffer_count <= 0;
+                buffer_fifo <= (others => (others => '0'));
+                current_data1 <= (others => '0');
+                current_data2 <= (others => '0');
+                last_sent_data <= (others => '0');
+                last_sent_valid <= '0';
+                lcd_update <= '0';
+                lcd_data1 <= (others => '0');
+                lcd_data2 <= (others => '0');
+            else
+                -- Transição de estado
+                current_state <= next_state;
                 
-                when IDLE =>
-                    -- Aguardar requisições
-                    lcd_update <= '0';
-                
-                when CHECK_BUFFER =>
-                    -- Verificar se há dados no buffer
-                    if buffer_empty = '0' then
-                        -- Pegar dados do buffer
-                        current_data1 <= buffer_fifo(read_ptr)(255 downto 128);
-                        current_data2 <= buffer_fifo(read_ptr)(127 downto 0);
-                    end if;
-                
-                when COMPARE_DATA =>
-                    -- Estado para comparar dados
-                    -- Não faz alterações, apenas verifica same_as_last
-                    null;
-                
-                when SEND_TO_LCD =>
-                    -- Enviar dados para o LCD controller
-                    lcd_data1 <= current_data1;
-                    lcd_data2 <= current_data2;
-                    lcd_update <= '1';
+                -- Processamento do buffer FIFO
+                case current_state is
                     
-                    -- Atualizar registro do último enviado
-                    last_sent_data <= current_combined;
-                    last_sent_valid <= '1';
+                    when IDLE =>
+                        -- Aguardar requisições
+                        lcd_update <= '0';
                     
-                    -- Atualizar ponteiro de leitura apenas se enviamos
-                    if buffer_count > 0 then
+                    when CHECK_BUFFER =>
+                        -- Verificar se há dados no buffer
+                        if buffer_empty = '0' then
+                            -- Pegar dados do buffer sem removê-los ainda
+                            current_data1 <= buffer_fifo(read_ptr)(255 downto 128);
+                            current_data2 <= buffer_fifo(read_ptr)(127 downto 0);
+                        end if;
+                    
+                    when COMPARE_DATA =>
+                        -- Estado para comparar dados
+                        -- Não faz alterações, apenas verifica same_as_last
+                        null;
+                    
+                    when SEND_TO_LCD =>
+                        -- Enviar dados para o LCD controller
+                        lcd_data1 <= current_data1;
+                        lcd_data2 <= current_data2;
+                        lcd_update <= '1';
+                        
+                        -- Atualizar registro do último enviado
+                        last_sent_data <= current_combined;
+                        last_sent_valid <= '1';
+                    
+                    when WAIT_LCD =>
+                        -- Esperar LCD terminar
+                        lcd_update <= '0';
+                        
+                        -- Remover dado do buffer apenas quando LCD aceitou
+                        if lcd_busy = '0' and buffer_count > 0 then
+                            if read_ptr = BUFFER_SIZE-1 then
+                                read_ptr <= 0;
+                            else
+                                read_ptr <= read_ptr + 1;
+                            end if;
+                            buffer_count <= buffer_count - 1;
+                        end if;
+                    
+                    when others =>
+                        null;
+                end case;
+                
+                -- Processar escrita no buffer (independente do estado)
+                if update_req_edge = '1' then
+                    -- Verificar se já temos esse dado (comparação antecipada)
+                    if last_sent_valid = '1' and (text_line1 & text_line2) = last_sent_data then
+                        -- Dado igual ao último enviado, não adiciona ao buffer
+                        null;
+                    elsif buffer_full = '0' then
+                        -- Escrever no buffer
+                        buffer_fifo(write_ptr) <= text_line1 & text_line2;
+                        
+                        -- Atualizar ponteiro de escrita
+                        if write_ptr = BUFFER_SIZE-1 then
+                            write_ptr <= 0;
+                        else
+                            write_ptr <= write_ptr + 1;
+                        end if;
+                        
+                        -- Incrementar contador
+                        buffer_count <= buffer_count + 1;
+                        
+                    else
+                        -- Buffer cheio - sobrescrever o mais antigo (read_ptr)
+                        buffer_fifo(read_ptr) <= text_line1 & text_line2;
+                        -- Avançar ponteiros
+                        if write_ptr = BUFFER_SIZE-1 then
+                            write_ptr <= 0;
+                        else
+                            write_ptr <= write_ptr + 1;
+                        end if;
                         if read_ptr = BUFFER_SIZE-1 then
                             read_ptr <= 0;
                         else
                             read_ptr <= read_ptr + 1;
                         end if;
-                        buffer_count <= buffer_count - 1;
+                        -- Contador permanece o mesmo
                     end if;
-                
-                when WAIT_LCD =>
-                    -- Esperar LCD terminar
-                    lcd_update <= '0';
-                    -- Não atualizamos last_sent_data aqui, já foi feito no SEND_TO_LCD
-                
-                when others =>
-                    current_state <= IDLE;
-            end case;
-            
-            -- Processar escrita no buffer (independente do estado, mas sincronizado com borda)
-            if update_req_edge = '1' then
-                -- Verificar se já temos esse dado (comparação antecipada)
-                if last_sent_valid = '1' and (text_line1 & text_line2) = last_sent_data then
-                    -- Dado igual ao último enviado, não adiciona ao buffer
-                    -- Apenas ignora a requisição
-                elsif buffer_full = '0' then
-                    -- Escrever no buffer
-                    buffer_fifo(write_ptr) <= text_line1 & text_line2;
-                    
-                    -- Atualizar ponteiro de escrita
-                    if write_ptr = BUFFER_SIZE-1 then
-                        write_ptr <= 0;
-                    else
-                        write_ptr <= write_ptr + 1;
-                    end if;
-                    
-                    -- Incrementar contador
-                    buffer_count <= buffer_count + 1;
-                    
-                else
-                    -- Buffer cheio - sobrescrever o mais antigo (read_ptr)
-                    buffer_fifo(read_ptr) <= text_line1 & text_line2;
-                    -- Neste caso, não incrementamos o buffer_count pois substituímos
                 end if;
             end if;
         end if;

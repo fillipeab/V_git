@@ -1,6 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
+<<<<<<< Updated upstream
 entity LCD_CONTROLER is
     generic (fclk: natural := 50_000_000); -- 50MHz , cristal do kit EE03
     port (
@@ -33,15 +34,43 @@ architecture hardware of LCD_CONTROLER is
         ClearDisplay, DisplayControl, EntryMode, 
         
         -- Estados de operação normal
+=======
+entity LCD_CONTROLLER is
+    generic (FCLK: natural := 50000000);
+    port (
+        SYS_CLK      : in  bit;
+        SYS_RESET    : in  std_logic;
+        DATA_IN1     : in  std_logic_vector(127 downto 0);
+        DATA_IN2     : in  std_logic_vector(127 downto 0);
+        UPDATE_CMD   : in  std_logic;
+        BUSY_OUT     : out std_logic;
+        LCD_RS       : out bit;
+        LCD_RW       : out bit;
+        LCD_E        : buffer bit;
+        LCD_DB       : out bit_vector(7 downto 0)
+    );
+end LCD_CONTROLLER;
+
+architecture RTL of LCD_CONTROLLER is
+
+    type STATE_TYPE is (
+        FS1, FS2, FS3, FS4, FS5, FS6, FS7, FS8, FS9, FS10,
+        FS11, FS12, FS13, FS14, FS15, FS16, FS17, FS18, FS19,
+        CLEAR_DISP, DISP_CTRL, ENTRY_MODE,
+>>>>>>> Stashed changes
         IDLE,
-        SetAddressLine1, WriteLine1,   -- Para escrever linha 1
-        SetAddressLine2, WriteLine2,   -- Para escrever linha 2
-        UpdateComplete
+        SET_ADDR1, WRITE_LINE1,
+        SET_ADDR2, WRITE_LINE2,
+        UPDATE_DONE
     );
     
-    -- Sinais de estado
-    signal pr_state, nx_state: state;
+    signal CURRENT_STATE, NEXT_STATE: STATE_TYPE;
+    signal WRITE_EN      : std_logic := '0';
+    signal DATA_REG1     : std_logic_vector(127 downto 0);
+    signal DATA_REG2     : std_logic_vector(127 downto 0);
+    signal CHAR_IDX      : integer range 0 to 15 := 0;
     
+<<<<<<< Updated upstream
     -- Sinais para controle de escrita
     signal write_enable    : std_logic := '0';
     signal data_reg1       : std_logic_vector(127 downto 0);
@@ -59,9 +88,17 @@ architecture hardware of LCD_CONTROLER is
     
     -- Sinal de clock como bit para compatibilidade
     signal clk_bit : bit;
+=======
+    type CHAR_ARRAY is array (0 to 15) of bit_vector(7 downto 0);
+    signal LINE1_CHARS : CHAR_ARRAY;
+    signal LINE2_CHARS : CHAR_ARRAY;
+>>>>>>> Stashed changes
     
+    signal CLK_COUNTER : natural range 0 to FCLK/1000 := 0;
+
 begin
 
+<<<<<<< Updated upstream
     -- Conversão de std_logic para bit
     clk_bit <= '1' when clk = '1' else '0';
 
@@ -72,12 +109,21 @@ begin
             if lcd_clk_counter = (fclk/500)/2 - 1 then  -- 500Hz = 50M/100,000
                 e_int <= not e_int;
                 lcd_clk_counter <= 0;
+=======
+    process (SYS_CLK)
+    begin
+        if (SYS_CLK' event and SYS_CLK = '1') then 
+            if CLK_COUNTER = FCLK/1000 - 1 then
+                LCD_E <= not LCD_E;
+                CLK_COUNTER <= 0;
+>>>>>>> Stashed changes
             else
-                lcd_clk_counter <= lcd_clk_counter + 1;
+                CLK_COUNTER <= CLK_COUNTER + 1;
             end if;
         end if;
     end process;
     
+<<<<<<< Updated upstream
     E <= e_int;
     
     -- Processo para capturar dados quando update_cmd chega
@@ -94,21 +140,34 @@ begin
                 write_enable <= '1';
             elsif pr_state = UpdateComplete then
                 write_enable <= '0';
+=======
+    process (SYS_CLK, SYS_RESET)
+    begin
+        if SYS_RESET = '0' then
+            WRITE_EN <= '0';
+            DATA_REG1 <= (others => '0');
+            DATA_REG2 <= (others => '0');
+        elsif rising_edge(SYS_CLK) then
+            if UPDATE_CMD = '1' and BUSY_OUT = '0' then
+                DATA_REG1 <= DATA_IN1;
+                DATA_REG2 <= DATA_IN2;
+                WRITE_EN <= '1';
+            elsif CURRENT_STATE = UPDATE_DONE then
+                WRITE_EN <= '0';
+>>>>>>> Stashed changes
             end if;
         end if;
     end process;
     
-    -- Conversão dos dados para array de caracteres
-    process (data_reg1, data_reg2)
+    process (DATA_REG1, DATA_REG2)
     begin
-        for i in 0 to 15 loop
-            -- Linha 1: cada byte representa um caractere ASCII
-            line1_chars(i) <= to_bitvector(data_reg1((127 - i*8) downto (120 - i*8)));
-            -- Linha 2: cada byte representa um caractere ASCII
-            line2_chars(i) <= to_bitvector(data_reg2((127 - i*8) downto (120 - i*8)));
+        for I in 0 to 15 loop
+            LINE1_CHARS(I) <= to_bitvector(DATA_REG1((127 - I*8) downto (120 - I*8)));
+            LINE2_CHARS(I) <= to_bitvector(DATA_REG2((127 - I*8) downto (120 - I*8)));
         end loop;
     end process;
     
+<<<<<<< Updated upstream
     -- Processo de transição de estado (sincronizado com E)
     process (e_int, reset_n)
     begin
@@ -117,21 +176,29 @@ begin
             char_index <= 0;
         elsif (e_int' event and e_int = '1') then
             pr_state <= nx_state;
+=======
+    process (LCD_E, SYS_RESET)
+    begin
+        if SYS_RESET = '0' then
+            CURRENT_STATE <= FS1;
+            CHAR_IDX <= 0;
+        elsif (LCD_E' event and LCD_E = '1') then
+            CURRENT_STATE <= NEXT_STATE;
+>>>>>>> Stashed changes
             
-            -- Incrementar índice de caractere nos estados de escrita
-            if pr_state = WriteLine1 or pr_state = WriteLine2 then
-                if char_index = 15 then
-                    char_index <= 0;
+            if CURRENT_STATE = WRITE_LINE1 or CURRENT_STATE = WRITE_LINE2 then
+                if CHAR_IDX = 15 then
+                    CHAR_IDX <= 0;
                 else
-                    char_index <= char_index + 1;
+                    CHAR_IDX <= CHAR_IDX + 1;
                 end if;
             end if;
         end if;
     end process;
     
-    -- Processo combinacional para próximo estado e saídas
-    process (pr_state, write_enable, char_index)
+    process (CURRENT_STATE, WRITE_EN, CHAR_IDX)
     begin
+<<<<<<< Updated upstream
         -- Valores padrão
         RS <= '0';
         RW <= '0';
@@ -143,9 +210,16 @@ begin
         else
             busy <= '1';
         end if;
+=======
+        LCD_RS <= '0';
+        LCD_RW <= '0';
+        LCD_DB <= (others => '0');
+        BUSY_OUT <= '1';
+>>>>>>> Stashed changes
         
-        case pr_state is
+        case CURRENT_STATE is
             
+<<<<<<< Updated upstream
             -- Estados de inicialização (mantidos como original)
             when FunctionSet1 => 
                 DB <= "00111000";
@@ -239,85 +313,162 @@ begin
             when IDLE =>
                 if write_enable = '1' then
                     nx_state <= SetAddressLine1;
+=======
+            when FS1 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS2;
+            when FS2 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS3;
+            when FS3 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS4;
+            when FS4 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS5;
+            when FS5 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS6;
+            when FS6 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS7;
+            when FS7 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS8;
+            when FS8 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS9;
+            when FS9 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS10;
+            when FS10 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS11;
+            when FS11 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS12;
+            when FS12 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS13;
+            when FS13 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS14;
+            when FS14 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS15;
+            when FS15 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS16;
+            when FS16 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS17;
+            when FS17 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS18;
+            when FS18 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= FS19;
+            when FS19 => 
+                LCD_DB <= "00111000";
+                NEXT_STATE <= CLEAR_DISP;
+            when CLEAR_DISP =>
+                LCD_DB <= "00000001";
+                NEXT_STATE <= DISP_CTRL;
+            when DISP_CTRL =>
+                LCD_DB <= "00001100";
+                NEXT_STATE <= ENTRY_MODE;
+            when ENTRY_MODE =>
+                LCD_DB <= "00000110";
+                NEXT_STATE <= IDLE;
+            when IDLE =>
+                BUSY_OUT <= '0';
+                if WRITE_EN = '1' then
+                    NEXT_STATE <= SET_ADDR1;
+>>>>>>> Stashed changes
                 else
-                    nx_state <= IDLE;
+                    NEXT_STATE <= IDLE;
                 end if;
-            
-            -- Configurar endereço para linha 1
-            when SetAddressLine1 =>
-                RS <= '0';
-                DB <= "10000000"; -- Endereço 0x80 (início linha 1)
-                nx_state <= WriteLine1;
-            
-            -- Escrever linha 1 (16 caracteres)
-            when WriteLine1 =>
-                RS <= '1';
-                DB <= line1_chars(char_index);
-                if char_index = 15 then
-                    nx_state <= SetAddressLine2;
+            when SET_ADDR1 =>
+                LCD_RS <= '0';
+                LCD_DB <= "10000000";
+                NEXT_STATE <= WRITE_LINE1;
+            when WRITE_LINE1 =>
+                LCD_RS <= '1';
+                LCD_DB <= LINE1_CHARS(CHAR_IDX);
+                if CHAR_IDX = 15 then
+                    NEXT_STATE <= SET_ADDR2;
                 else
-                    nx_state <= WriteLine1;
+                    NEXT_STATE <= WRITE_LINE1;
                 end if;
-            
-            -- Configurar endereço para linha 2
-            when SetAddressLine2 =>
-                RS <= '0';
-                DB <= "11000000"; -- Endereço 0xC0 (início linha 2)
-                nx_state <= WriteLine2;
-            
-            -- Escrever linha 2 (16 caracteres)
-            when WriteLine2 =>
-                RS <= '1';
-                DB <= line2_chars(char_index);
-                if char_index = 15 then
-                    nx_state <= UpdateComplete;
+            when SET_ADDR2 =>
+                LCD_RS <= '0';
+                LCD_DB <= "11000000";
+                NEXT_STATE <= WRITE_LINE2;
+            when WRITE_LINE2 =>
+                LCD_RS <= '1';
+                LCD_DB <= LINE2_CHARS(CHAR_IDX);
+                if CHAR_IDX = 15 then
+                    NEXT_STATE <= UPDATE_DONE;
                 else
-                    nx_state <= WriteLine2;
+                    NEXT_STATE <= WRITE_LINE2;
                 end if;
-            
-            -- Atualização completa
-            when UpdateComplete =>
-                nx_state <= IDLE;
-                
+            when UPDATE_DONE =>
+                NEXT_STATE <= IDLE;
             when others =>
-                nx_state <= FunctionSet1;
-                
+                NEXT_STATE <= FS1;
         end case;
     end process;
     
-end hardware;
-
+end RTL;
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity lcd_buffer_controller is
-    Port (
-        -- Interface com Quiz Core
-        clk         : in  std_logic;
-        reset_n     : in  std_logic;
-        text_line1  : in  std_logic_vector(127 downto 0);
-        text_line2  : in  std_logic_vector(127 downto 0);
-        update_req  : in  std_logic;
-        
-        -- Interface com LCD Controller interno
-        lcd_busy    : in  std_logic;
-        lcd_data1   : out std_logic_vector(127 downto 0);
-        lcd_data2   : out std_logic_vector(127 downto 0);
-        lcd_update  : out std_logic
+entity LCD_BUFFER_CONTROLLER is
+    port (
+        CLK          : in  std_logic;
+        RESET        : in  std_logic;
+        TXT_LINE1    : in  std_logic_vector(127 downto 0);
+        TXT_LINE2    : in  std_logic_vector(127 downto 0);
+        UPDATE_REQ   : in  std_logic;
+        LCD_BUSY_IN  : in  std_logic;
+        LCD_DATA1    : out std_logic_vector(127 downto 0);
+        LCD_DATA2    : out std_logic_vector(127 downto 0);
+        LCD_UPDATE   : out std_logic
     );
-end lcd_buffer_controller;
+end LCD_BUFFER_CONTROLLER;
 
-architecture Behavioral of lcd_buffer_controller is
+architecture RTL of LCD_BUFFER_CONTROLLER is
+
+    component LCD_CONTROLLER
+        generic (FCLK: natural := 50000000);
+        port (
+            SYS_CLK      : in  bit;
+            SYS_RESET    : in  std_logic;
+            DATA_IN1     : in  std_logic_vector(127 downto 0);
+            DATA_IN2     : in  std_logic_vector(127 downto 0);
+            UPDATE_CMD   : in  std_logic;
+            BUSY_OUT     : out std_logic;
+            LCD_RS       : out bit;
+            LCD_RW       : out bit;
+            LCD_E        : buffer bit;
+            LCD_DB       : out bit_vector(7 downto 0)
+        );
+    end component;
+
+    constant BUF_SIZE : integer := 3;
     
-    -- Constantes
-    constant BUFFER_SIZE : integer := 3;
+    type BUF_ARRAY is array (0 to BUF_SIZE-1) of std_logic_vector(255 downto 0);
     
-    -- Tipos para o buffer FIFO
-    type buffer_array_t is array (0 to BUFFER_SIZE-1) of 
-         std_logic_vector(255 downto 0); -- Concatena line1 + line2
+    signal FIFO_BUFFER    : BUF_ARRAY;
+    signal WR_PTR         : integer range 0 to BUF_SIZE-1 := 0;
+    signal RD_PTR         : integer range 0 to BUF_SIZE-1 := 0;
+    signal BUF_COUNT      : integer range 0 to BUF_SIZE := 0;
+    signal BUF_EMPTY      : std_logic;
+    signal BUF_FULL       : std_logic;
     
+<<<<<<< Updated upstream
     -- Sinais do buffer FIFO
     signal buffer_fifo    : buffer_array_t := (others => (others => '0'));
     signal write_ptr      : integer range 0 to BUFFER_SIZE-1 := 0;
@@ -329,19 +480,37 @@ architecture Behavioral of lcd_buffer_controller is
     -- Registro do último conteúdo enviado ao LCD
     signal last_sent_data : std_logic_vector(255 downto 0) := (others => '0');
     signal last_sent_valid : std_logic := '0';
+=======
+    signal LAST_DATA      : std_logic_vector(255 downto 0);
+    signal LAST_VALID     : std_logic := '0';
     
-    -- Sinais de controle
-    type state_t is (IDLE, CHECK_BUFFER, COMPARE_DATA, SEND_TO_LCD, WAIT_LCD);
-    signal current_state, next_state : state_t;
+    type STATE_TYPE is (ST_IDLE, ST_CHECK_BUF, ST_COMPARE, ST_SEND_LCD, ST_WAIT_LCD);
+    signal CUR_STATE, NXT_STATE : STATE_TYPE;
+>>>>>>> Stashed changes
     
+    signal CUR_DATA1      : std_logic_vector(127 downto 0);
+    signal CUR_DATA2      : std_logic_vector(127 downto 0);
+    signal CUR_COMBINED   : std_logic_vector(255 downto 0);
+    
+<<<<<<< Updated upstream
     -- Sinais de dados temporários
     signal current_data1  : std_logic_vector(127 downto 0) := (others => '0');
     signal current_data2  : std_logic_vector(127 downto 0) := (others => '0');
     signal current_combined : std_logic_vector(255 downto 0);
+=======
+    signal RESET_SYNC     : std_logic;
+    signal SAME_AS_LAST   : std_logic;
+    signal UPDATE_SYNC    : std_logic;
+    signal UPDATE_EDGE    : std_logic;
+>>>>>>> Stashed changes
     
-    -- Sinal de reset sincronizado
-    signal reset_sync     : std_logic;
+    signal LCD_CTRL_BUSY  : std_logic;
+    signal LCD_CTRL_RS    : bit;
+    signal LCD_CTRL_RW    : bit;
+    signal LCD_CTRL_E     : bit;
+    signal LCD_CTRL_DB    : bit_vector(7 downto 0);
     
+<<<<<<< Updated upstream
     -- Sinais para detecção de mudança
     signal same_as_last   : std_logic;
     signal update_req_sync : std_logic := '0';
@@ -368,19 +537,40 @@ begin
                 update_req_sync <= update_req;
                 update_req_edge <= update_req and not update_req_sync;
             end if;
+=======
+    signal CLK_BIT        : bit;
+
+begin
+
+    CLK_BIT <= '1' when CLK = '1' else '0';
+    
+    process(CLK)
+    begin
+        if rising_edge(CLK) then
+            RESET_SYNC <= not RESET;
         end if;
     end process;
     
-    -- Sinais de status do buffer
-    buffer_empty <= '1' when buffer_count = 0 else '0';
-    buffer_full  <= '1' when buffer_count = BUFFER_SIZE else '0';
+    process(CLK, RESET_SYNC)
+    begin
+        if RESET_SYNC = '1' then
+            UPDATE_SYNC <= '0';
+            UPDATE_EDGE <= '0';
+        elsif rising_edge(CLK) then
+            UPDATE_SYNC <= UPDATE_REQ;
+            UPDATE_EDGE <= UPDATE_REQ and not UPDATE_SYNC;
+>>>>>>> Stashed changes
+        end if;
+    end process;
     
-    -- Combinação dos dados atuais
-    current_combined <= current_data1 & current_data2;
+    BUF_EMPTY <= '1' when BUF_COUNT = 0 else '0';
+    BUF_FULL  <= '1' when BUF_COUNT = BUF_SIZE else '0';
     
-    -- Comparação com o último enviado
-    same_as_last <= '1' when (last_sent_valid = '1' and current_combined = last_sent_data) else '0';
+    CUR_COMBINED <= CUR_DATA1 & CUR_DATA2;
     
+    SAME_AS_LAST <= '1' when (LAST_VALID = '1' and CUR_COMBINED = LAST_DATA) else '0';
+    
+<<<<<<< Updated upstream
     -- Processo principal da máquina de estados
     process(clk)
     begin
@@ -481,52 +671,124 @@ begin
                         end if;
                         if read_ptr = BUFFER_SIZE-1 then
                             read_ptr <= 0;
+=======
+    process(CLK, RESET_SYNC)
+    begin
+        if RESET_SYNC = '1' then
+            CUR_STATE <= ST_IDLE;
+            WR_PTR <= 0;
+            RD_PTR <= 0;
+            BUF_COUNT <= 0;
+            FIFO_BUFFER <= (others => (others => '0'));
+            CUR_DATA1 <= (others => '0');
+            CUR_DATA2 <= (others => '0');
+            LAST_DATA <= (others => '0');
+            LAST_VALID <= '0';
+            LCD_UPDATE <= '0';
+            LCD_DATA1 <= (others => '0');
+            LCD_DATA2 <= (others => '0');
+            
+        elsif rising_edge(CLK) then
+            CUR_STATE <= NXT_STATE;
+            
+            case CUR_STATE is
+                when ST_IDLE =>
+                    LCD_UPDATE <= '0';
+                when ST_CHECK_BUF =>
+                    if BUF_EMPTY = '0' then
+                        CUR_DATA1 <= FIFO_BUFFER(RD_PTR)(255 downto 128);
+                        CUR_DATA2 <= FIFO_BUFFER(RD_PTR)(127 downto 0);
+                    end if;
+                when ST_COMPARE =>
+                    null;
+                when ST_SEND_LCD =>
+                    LCD_DATA1 <= CUR_DATA1;
+                    LCD_DATA2 <= CUR_DATA2;
+                    LCD_UPDATE <= '1';
+                    LAST_DATA <= CUR_COMBINED;
+                    LAST_VALID <= '1';
+                    if BUF_COUNT > 0 then
+                        if RD_PTR = BUF_SIZE-1 then
+                            RD_PTR <= 0;
+>>>>>>> Stashed changes
                         else
-                            read_ptr <= read_ptr + 1;
+                            RD_PTR <= RD_PTR + 1;
                         end if;
+<<<<<<< Updated upstream
                         -- Contador permanece o mesmo
                     end if;
+=======
+                        BUF_COUNT <= BUF_COUNT - 1;
+                    end if;
+                when ST_WAIT_LCD =>
+                    LCD_UPDATE <= '0';
+                when others =>
+                    CUR_STATE <= ST_IDLE;
+            end case;
+            
+            if UPDATE_EDGE = '1' then
+                if LAST_VALID = '1' and (TXT_LINE1 & TXT_LINE2) = LAST_DATA then
+                elsif BUF_FULL = '0' then
+                    FIFO_BUFFER(WR_PTR) <= TXT_LINE1 & TXT_LINE2;
+                    if WR_PTR = BUF_SIZE-1 then
+                        WR_PTR <= 0;
+                    else
+                        WR_PTR <= WR_PTR + 1;
+                    end if;
+                    BUF_COUNT <= BUF_COUNT + 1;
+                else
+                    FIFO_BUFFER(RD_PTR) <= TXT_LINE1 & TXT_LINE2;
+>>>>>>> Stashed changes
                 end if;
             end if;
         end if;
     end process;
     
-    -- Lógica de próximo estado
-    process(current_state, buffer_empty, lcd_busy, same_as_last)
+    process(CUR_STATE, BUF_EMPTY, LCD_BUSY_IN, SAME_AS_LAST)
     begin
-        case current_state is
-            when IDLE =>
-                next_state <= CHECK_BUFFER;
-            
-            when CHECK_BUFFER =>
-                if buffer_empty = '0' then
-                    next_state <= COMPARE_DATA;
+        case CUR_STATE is
+            when ST_IDLE =>
+                NXT_STATE <= ST_CHECK_BUF;
+            when ST_CHECK_BUF =>
+                if BUF_EMPTY = '0' then
+                    NXT_STATE <= ST_COMPARE;
                 else
-                    next_state <= IDLE;
+                    NXT_STATE <= ST_IDLE;
                 end if;
-            
-            when COMPARE_DATA =>
-                if same_as_last = '1' then
-                    -- Dados iguais ao último enviado, descartar e pegar próximo
-                    next_state <= CHECK_BUFFER;
+            when ST_COMPARE =>
+                if SAME_AS_LAST = '1' then
+                    NXT_STATE <= ST_CHECK_BUF;
                 else
-                    -- Dados diferentes, enviar ao LCD
-                    next_state <= SEND_TO_LCD;
+                    NXT_STATE <= ST_SEND_LCD;
                 end if;
-            
-            when SEND_TO_LCD =>
-                next_state <= WAIT_LCD;
-            
-            when WAIT_LCD =>
-                if lcd_busy = '0' then
-                    next_state <= CHECK_BUFFER;
+            when ST_SEND_LCD =>
+                NXT_STATE <= ST_WAIT_LCD;
+            when ST_WAIT_LCD =>
+                if LCD_BUSY_IN = '0' then
+                    NXT_STATE <= ST_CHECK_BUF;
                 else
-                    next_state <= WAIT_LCD;
+                    NXT_STATE <= ST_WAIT_LCD;
                 end if;
-            
             when others =>
-                next_state <= IDLE;
+                NXT_STATE <= ST_IDLE;
         end case;
     end process;
 
-end Behavioral;
+    U_LCD_CONTROLLER: LCD_CONTROLLER
+    generic map (FCLK => 50000000)
+    port map (
+        SYS_CLK      => CLK_BIT,
+        SYS_RESET    => RESET,
+        DATA_IN1     => LCD_DATA1,
+        DATA_IN2     => LCD_DATA2,
+        UPDATE_CMD   => LCD_UPDATE,
+        BUSY_OUT     => LCD_CTRL_BUSY,
+        LCD_RS       => LCD_CTRL_RS,
+        LCD_RW       => LCD_CTRL_RW,
+        LCD_E        => LCD_CTRL_E,
+        LCD_DB       => LCD_CTRL_DB
+    );
+
+    LCD_BUSY_IN <= LCD_CTRL_BUSY;
+
+end RTL;

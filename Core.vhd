@@ -23,7 +23,7 @@ package Quiz_Strings_PKG is
     constant MSG_LEVEL_EASY : std_logic_vector(127 downto 0) := X"4E6976656C3A20466163696C20202020"; -- "Nivel: Facil   "
     constant MSG_LEVEL_MED  : std_logic_vector(127 downto 0) := X"4E6976656C3A204D6564696F20202020"; -- "Nivel: Medio   "
     constant MSG_LEVEL_HARD : std_logic_vector(127 downto 0) := X"4E6976656C3A204469666963696C2020"; -- "Nivel: Dificil "
-    constant MSG_SCORE_PRE  : std_logic_vector(55 downto 0)  := X"506F6E746F733A"; -- "Pontos: "
+    constant MSG_SCORE_PRE  : std_logic_vector(55 downto 0)  := X"506F6E746F733A"; -- "points: "
     
     -- ========== INÍCIO ==========
     constant MSG_PRESS_START: std_logic_vector(127 downto 0) := X"50726573696F6E652053746172742020"; -- "Presione Start "
@@ -77,14 +77,15 @@ entity Quiz_Core_Minimal is
     port (
         clk              : in  std_logic;
         reset_n          : in  std_logic;
+		start            : in  std_logic;
+		key_valid        : in  std_logic;
         key_value        : in  std_logic_vector(3 downto 0);
-        key_valid        : in  std_logic;
-        btn_start        : in  std_logic;
-        questao_texto1   : in  std_logic_vector(127 downto 0);
-        questao_resposta : in  std_logic_vector(7 downto 0);
-        questao_index    : out integer range 0 to 7;
-        display_linha1   : out std_logic_vector(127 downto 0);
-        display_linha2   : out std_logic_vector(127 downto 0);
+        question_answer  : in  std_logic_vector(7 downto 0);
+		question_text    : in  std_logic_vector(127 downto 0);
+		
+        question_id    : out integer range 0 to 7;
+        dsp_line_1   : out std_logic_vector(127 downto 0);
+        dsp_line_2   : out std_logic_vector(127 downto 0);
         lcd_update_req   : out std_logic;
         quiz_finished    : out std_logic
     );
@@ -101,13 +102,13 @@ architecture Behavioral of Quiz_Core_Minimal is
     signal safeguard_counter : integer range 0 to SAFETY_CYCLES := 0;
     signal input_buffer      : std_logic_vector(23 downto 0) := SPACE_24;
     signal input_count       : integer range 0 to 3 := 0;
-    signal pontos           : integer range 0 to 8 := 0;
-    signal questao_atual    : integer range 0 to 7 := 0;
-    signal total_questoes   : integer range 4 to 8 := 8;
-    signal nivel_dificuldade : integer range 1 to 3 := 1;
+    signal points           : integer range 0 to 8 := 0;
+    signal current_question    : integer range 0 to 7 := 0;
+    signal total_questions   : integer range 4 to 8 := 8;
+    signal dificulty_level : integer range 1 to 3 := 1;
     
-    signal display_linha1_reg : std_logic_vector(127 downto 0) := (others => '0');
-    signal display_linha2_reg : std_logic_vector(127 downto 0) := (others => '0');
+    signal dsp_line_1_reg : std_logic_vector(127 downto 0) := (others => '0');
+    signal dsp_line_2_reg : std_logic_vector(127 downto 0) := (others => '0');
     signal update_req_reg     : std_logic := '0';
     signal next_state : T_QUIZ_STATE;
     
@@ -116,10 +117,10 @@ architecture Behavioral of Quiz_Core_Minimal is
     -- ============================================
     
     -- Converte binário para ASCII sem divisão
-    function digito_para_ascii(digito : std_logic_vector(3 downto 0)) 
+    function digit_to_ascii(digit : std_logic_vector(3 downto 0)) 
         return std_logic_vector is
     begin
-        case digito is
+        case digit is
             when "0000" => return CHAR_0;
             when "0001" => return CHAR_1;
             when "0010" => return CHAR_2;
@@ -135,7 +136,7 @@ architecture Behavioral of Quiz_Core_Minimal is
     end function;
     
     -- Formata resposta sem divisão
-    function formatar_resposta(buffer_in : std_logic_vector(23 downto 0))
+    function format_answer(buffer_in : std_logic_vector(23 downto 0))
         return std_logic_vector is
         variable linha : std_logic_vector(127 downto 0);
     begin
@@ -147,11 +148,11 @@ architecture Behavioral of Quiz_Core_Minimal is
     end function;
     
     -- Converte ASCII para inteiro sem multiplicação cara
-    function calcular_valor(buffer_in : std_logic_vector(23 downto 0))
+    function ASCII_to_integer(buffer_in : std_logic_vector(23 downto 0))
         return integer is
-        variable valor : integer := 0;
+        variable value : integer := 0;
         variable char1, char2, char3 : std_logic_vector(7 downto 0);
-        variable digito : integer;
+        variable digit : integer;
     begin
         -- Extrai caracteres
         char1 := buffer_in(23 downto 16);
@@ -161,138 +162,138 @@ architecture Behavioral of Quiz_Core_Minimal is
         -- Processa dígito 1 (centena)
         if char1 /= CHAR_SPACE then
             case char1 is
-                when CHAR_0 => digito := 0;
-                when CHAR_1 => digito := 1;
-                when CHAR_2 => digito := 2;
-                when CHAR_3 => digito := 3;
-                when CHAR_4 => digito := 4;
-                when CHAR_5 => digito := 5;
-                when CHAR_6 => digito := 6;
-                when CHAR_7 => digito := 7;
-                when CHAR_8 => digito := 8;
-                when CHAR_9 => digito := 9;
-                when others => digito := 0;
+                when CHAR_0 => digit := 0;
+                when CHAR_1 => digit := 1;
+                when CHAR_2 => digit := 2;
+                when CHAR_3 => digit := 3;
+                when CHAR_4 => digit := 4;
+                when CHAR_5 => digit := 5;
+                when CHAR_6 => digit := 6;
+                when CHAR_7 => digit := 7;
+                when CHAR_8 => digit := 8;
+                when CHAR_9 => digit := 9;
+                when others => digit := 0;
             end case;
-            valor := digito * 100;  -- Multiplicação por constante = shift + soma
+            value := digit * 100;  -- Multiplicação por constante = shift + soma
         end if;
         
-        -- Processa dígito 2 (dezena)
+        -- Processa dígito 2 (dozens)
         if char2 /= CHAR_SPACE then
             case char2 is
-                when CHAR_0 => digito := 0;
-                when CHAR_1 => digito := 1;
-                when CHAR_2 => digito := 2;
-                when CHAR_3 => digito := 3;
-                when CHAR_4 => digito := 4;
-                when CHAR_5 => digito := 5;
-                when CHAR_6 => digito := 6;
-                when CHAR_7 => digito := 7;
-                when CHAR_8 => digito := 8;
-                when CHAR_9 => digito := 9;
-                when others => digito := 0;
+                when CHAR_0 => digit := 0;
+                when CHAR_1 => digit := 1;
+                when CHAR_2 => digit := 2;
+                when CHAR_3 => digit := 3;
+                when CHAR_4 => digit := 4;
+                when CHAR_5 => digit := 5;
+                when CHAR_6 => digit := 6;
+                when CHAR_7 => digit := 7;
+                when CHAR_8 => digit := 8;
+                when CHAR_9 => digit := 9;
+                when others => digit := 0;
             end case;
-            valor := valor + digito * 10;
+            value := value + digit * 10;
         end if;
         
-        -- Processa dígito 3 (unidade)
+        -- Processa dígito 3 (unit)
         if char3 /= CHAR_SPACE then
             case char3 is
-                when CHAR_0 => digito := 0;
-                when CHAR_1 => digito := 1;
-                when CHAR_2 => digito := 2;
-                when CHAR_3 => digito := 3;
-                when CHAR_4 => digito := 4;
-                when CHAR_5 => digito := 5;
-                when CHAR_6 => digito := 6;
-                when CHAR_7 => digito := 7;
-                when CHAR_8 => digito := 8;
-                when CHAR_9 => digito := 9;
-                when others => digito := 0;
+                when CHAR_0 => digit := 0;
+                when CHAR_1 => digit := 1;
+                when CHAR_2 => digit := 2;
+                when CHAR_3 => digit := 3;
+                when CHAR_4 => digit := 4;
+                when CHAR_5 => digit := 5;
+                when CHAR_6 => digit := 6;
+                when CHAR_7 => digit := 7;
+                when CHAR_8 => digit := 8;
+                when CHAR_9 => digit := 9;
+                when others => digit := 0;
             end case;
-            valor := valor + digito;
+            value := value + digit;
         end if;
         
-        return valor;
+        return value;
     end function;
     
     -- Converte inteiro para 2 dígitos ASCII SEM DIVISÃO
-    function int_to_ascii_2digitos(numero : integer range 0 to 99)
+    function int_to_ascii_2digits(number : integer range 0 to 99)
         return std_logic_vector is
-        variable resultado : std_logic_vector(15 downto 0);
-        variable dezena, unidade : integer;
+        variable result : std_logic_vector(15 downto 0);
+        variable dozens, unit : integer;
     begin
-        -- Calcula dezena sem divisão (usando subtrações ou lookup)
-        if numero < 10 then
-            dezena := 0;
-            unidade := numero;
-        elsif numero < 20 then
-            dezena := 1;
-            unidade := numero - 10;
-        elsif numero < 30 then
-            dezena := 2;
-            unidade := numero - 20;
-        elsif numero < 40 then
-            dezena := 3;
-            unidade := numero - 30;
-        elsif numero < 50 then
-            dezena := 4;
-            unidade := numero - 40;
-        elsif numero < 60 then
-            dezena := 5;
-            unidade := numero - 50;
-        elsif numero < 70 then
-            dezena := 6;
-            unidade := numero - 60;
-        elsif numero < 80 then
-            dezena := 7;
-            unidade := numero - 70;
-        elsif numero < 90 then
-            dezena := 8;
-            unidade := numero - 80;
+        -- Calcula dozens sem divisão (usando subtrações ou lookup)
+        if number < 10 then
+            dozens := 0;
+            unit := number;
+        elsif number < 20 then
+            dozens := 1;
+            unit := number - 10;
+        elsif number < 30 then
+            dozens := 2;
+            unit := number - 20;
+        elsif number < 40 then
+            dozens := 3;
+            unit := number - 30;
+        elsif number < 50 then
+            dozens := 4;
+            unit := number - 40;
+        elsif number < 60 then
+            dozens := 5;
+            unit := number - 50;
+        elsif number < 70 then
+            dozens := 6;
+            unit := number - 60;
+        elsif number < 80 then
+            dozens := 7;
+            unit := number - 70;
+        elsif number < 90 then
+            dozens := 8;
+            unit := number - 80;
         else
-            dezena := 9;
-            unidade := numero - 90;
+            dozens := 9;
+            unit := number - 90;
         end if;
         
-        -- Converte dezena para ASCII
-        case dezena is
-            when 0 => resultado(15 downto 8) := CHAR_0;
-            when 1 => resultado(15 downto 8) := CHAR_1;
-            when 2 => resultado(15 downto 8) := CHAR_2;
-            when 3 => resultado(15 downto 8) := CHAR_3;
-            when 4 => resultado(15 downto 8) := CHAR_4;
-            when 5 => resultado(15 downto 8) := CHAR_5;
-            when 6 => resultado(15 downto 8) := CHAR_6;
-            when 7 => resultado(15 downto 8) := CHAR_7;
-            when 8 => resultado(15 downto 8) := CHAR_8;
-            when 9 => resultado(15 downto 8) := CHAR_9;
-            when others => resultado(15 downto 8) := CHAR_SPACE;
+        -- Converte dozens para ASCII
+        case dozens is
+            when 0 => result(15 downto 8) := CHAR_0;
+            when 1 => result(15 downto 8) := CHAR_1;
+            when 2 => result(15 downto 8) := CHAR_2;
+            when 3 => result(15 downto 8) := CHAR_3;
+            when 4 => result(15 downto 8) := CHAR_4;
+            when 5 => result(15 downto 8) := CHAR_5;
+            when 6 => result(15 downto 8) := CHAR_6;
+            when 7 => result(15 downto 8) := CHAR_7;
+            when 8 => result(15 downto 8) := CHAR_8;
+            when 9 => result(15 downto 8) := CHAR_9;
+            when others => result(15 downto 8) := CHAR_SPACE;
         end case;
         
-        -- Converte unidade para ASCII
-        case unidade is
-            when 0 => resultado(7 downto 0) := CHAR_0;
-            when 1 => resultado(7 downto 0) := CHAR_1;
-            when 2 => resultado(7 downto 0) := CHAR_2;
-            when 3 => resultado(7 downto 0) := CHAR_3;
-            when 4 => resultado(7 downto 0) := CHAR_4;
-            when 5 => resultado(7 downto 0) := CHAR_5;
-            when 6 => resultado(7 downto 0) := CHAR_6;
-            when 7 => resultado(7 downto 0) := CHAR_7;
-            when 8 => resultado(7 downto 0) := CHAR_8;
-            when 9 => resultado(7 downto 0) := CHAR_9;
-            when others => resultado(7 downto 0) := CHAR_SPACE;
+        -- Converte unit para ASCII
+        case unit is
+            when 0 => result(7 downto 0) := CHAR_0;
+            when 1 => result(7 downto 0) := CHAR_1;
+            when 2 => result(7 downto 0) := CHAR_2;
+            when 3 => result(7 downto 0) := CHAR_3;
+            when 4 => result(7 downto 0) := CHAR_4;
+            when 5 => result(7 downto 0) := CHAR_5;
+            when 6 => result(7 downto 0) := CHAR_6;
+            when 7 => result(7 downto 0) := CHAR_7;
+            when 8 => result(7 downto 0) := CHAR_8;
+            when 9 => result(7 downto 0) := CHAR_9;
+            when others => result(7 downto 0) := CHAR_SPACE;
         end case;
         
-        return resultado;
+        return result;
     end function;
 
 
 begin
 
-    questao_index  <= questao_atual;
-    display_linha1 <= display_linha1_reg;
-    display_linha2 <= display_linha2_reg;
+    question_id  <= current_question;
+    dsp_line_1 <= dsp_line_1_reg;
+    dsp_line_2 <= dsp_line_2_reg;
     lcd_update_req <= update_req_reg;
     quiz_finished  <= '1' when state = S_FINISH else '0';
     
@@ -311,12 +312,12 @@ begin
             safeguard_counter <= 0;
             input_buffer <= SPACE_24;
             input_count <= 0;
-            pontos <= 0;
-            questao_atual <= 0;
-            nivel_dificuldade <= 1;
-            total_questoes <= 4;
-            display_linha1_reg <= MSG_PRESS_START;  -- Corrigido: mostra mensagem inicial
-            display_linha2_reg <= MSG_TO_START;     -- Corrigido: mostra mensagem inicial
+            points <= 0;
+            current_question <= 0;
+            dificulty_level <= 1;
+            total_questions <= 4;
+            dsp_line_1_reg <= MSG_PRESS_START;  -- Corrigido: mostra mensagem inicial
+            dsp_line_2_reg <= MSG_TO_START;     -- Corrigido: mostra mensagem inicial
             update_req_reg <= '0';
             next_state <= S_IDLE;
             menu_digit := CHAR_SPACE;
@@ -325,7 +326,7 @@ begin
         elsif rising_edge(clk) then
             update_req_reg <= '0';
             
-            -- Inicializa variáveis temporárias com os valores atuais
+            -- Inicializa variáveis temporárias com os valuees atuais
             temp_buffer := input_buffer;
             temp_count := input_count;
             
@@ -340,16 +341,16 @@ begin
                 
                 when S_IDLE =>
                     -- CORREÇÃO: Sempre mostrar tela inicial quando no estado IDLE
-                    if display_linha1_reg /= MSG_PRESS_START or display_linha2_reg /= MSG_TO_START then
-                        display_linha1_reg <= MSG_PRESS_START;
-                        display_linha2_reg <= MSG_TO_START;
+                    if dsp_line_1_reg /= MSG_PRESS_START or dsp_line_2_reg /= MSG_TO_START then
+                        dsp_line_1_reg <= MSG_PRESS_START;
+                        dsp_line_2_reg <= MSG_TO_START;
                         update_req_reg <= '1';
                     end if;
                     
-                    if btn_start = '1' then
+                    if start = '1' then
                         state <= S_MENU;
-                        display_linha1_reg <= MSG_MENU_TITLE;
-                        display_linha2_reg <= MSG_MENU_OPTS;
+                        dsp_line_1_reg <= MSG_MENU_TITLE;
+                        dsp_line_2_reg <= MSG_MENU_OPTS;
                         update_req_reg <= '1';
                         menu_digit := CHAR_SPACE;
                         menu_has_digit := false;
@@ -359,40 +360,40 @@ begin
                     if key_valid = '1' then
                         case key_value is
                             when "0001" | "0010" | "0011" =>
-                                menu_digit := digito_para_ascii(key_value);
+                                menu_digit := digit_to_ascii(key_value);
                                 menu_has_digit := true;
-                                display_linha1_reg <= MSG_MENU_TITLE;
-                                display_linha2_reg(127 downto 64) <= X"4E6976656C3A2020"; -- "Nivel: "
-                                display_linha2_reg(63 downto 56) <= menu_digit;
-                                display_linha2_reg(55 downto 0) <= SPACE_56;
+                                dsp_line_1_reg <= MSG_MENU_TITLE;
+                                dsp_line_2_reg(127 downto 64) <= X"4E6976656C3A2020"; -- "Nivel: "
+                                dsp_line_2_reg(63 downto 56) <= menu_digit;
+                                dsp_line_2_reg(55 downto 0) <= SPACE_56;
                                 update_req_reg <= '1';
                             
                             when "1111" =>
                                 menu_digit := CHAR_SPACE;
                                 menu_has_digit := false;
-                                display_linha1_reg <= MSG_MENU_TITLE;
-                                display_linha2_reg <= MSG_MENU_OPTS;
+                                dsp_line_1_reg <= MSG_MENU_TITLE;
+                                dsp_line_2_reg <= MSG_MENU_OPTS;
                                 update_req_reg <= '1';
                             
                             when "1110" =>
                                 if menu_has_digit then
                                     case menu_digit is
                                         when CHAR_1 =>
-                                            nivel_dificuldade <= 1;
-                                            total_questoes <= 4;
+                                            dificulty_level <= 1;
+                                            total_questions <= 4;
                                         when CHAR_2 =>
-                                            nivel_dificuldade <= 2;
-                                            total_questoes <= 6;
+                                            dificulty_level <= 2;
+                                            total_questions <= 6;
                                         when CHAR_3 =>
-                                            nivel_dificuldade <= 3;
-                                            total_questoes <= 8;
+                                            dificulty_level <= 3;
+                                            total_questions <= 8;
                                         when others => null;
                                     end case;
                                     
-                                    questao_atual <= 0;
+                                    current_question <= 0;
                                     input_buffer <= SPACE_24;
                                     input_count <= 0;
-                                    pontos <= 0;
+                                    points <= 0;
                                     
                                     state <= S_SAFEGUARD;
                                     next_state <= S_QUESTION;
@@ -401,8 +402,8 @@ begin
                             
                             when "1010" =>
                                 state <= S_IDLE;
-                                display_linha1_reg <= MSG_PRESS_START;
-                                display_linha2_reg <= MSG_TO_START;
+                                dsp_line_1_reg <= MSG_PRESS_START;
+                                dsp_line_2_reg <= MSG_TO_START;
                                 update_req_reg <= '1';
                             
                             when others => null;
@@ -410,8 +411,8 @@ begin
                     end if;
                 
                 when S_QUESTION =>
-                    display_linha1_reg <= questao_texto1;
-                    display_linha2_reg <= formatar_resposta(input_buffer);
+                    dsp_line_1_reg <= question_text;
+                    dsp_line_2_reg <= format_answer(input_buffer);
                     update_req_reg <= '1';
                     state <= S_INPUT;
                 
@@ -422,13 +423,13 @@ begin
                                 if temp_count < 3 then
                                     -- CORREÇÃO: Usar variável temporária para cálculo correto da posição
                                     case temp_count is
-                                        when 0 => temp_buffer(23 downto 16) := digito_para_ascii(key_value);
-                                        when 1 => temp_buffer(15 downto 8) := digito_para_ascii(key_value);
-                                        when 2 => temp_buffer(7 downto 0) := digito_para_ascii(key_value);
+                                        when 0 => temp_buffer(23 downto 16) := digit_to_ascii(key_value);
+                                        when 1 => temp_buffer(15 downto 8) := digit_to_ascii(key_value);
+                                        when 2 => temp_buffer(7 downto 0) := digit_to_ascii(key_value);
                                         when others => null;
                                     end case;
                                     temp_count := temp_count + 1;
-                                    display_linha2_reg <= formatar_resposta(temp_buffer);
+                                    dsp_line_2_reg <= format_answer(temp_buffer);
                                     update_req_reg <= '1';
                                 end if;
                             
@@ -443,7 +444,7 @@ begin
                                         when 3 => temp_buffer(7 downto 0) := CHAR_SPACE;
                                         when others => null;
                                     end case;
-                                    display_linha2_reg <= formatar_resposta(temp_buffer);
+                                    dsp_line_2_reg <= format_answer(temp_buffer);
                                     update_req_reg <= '1';
                                 end if;
                             
@@ -455,7 +456,7 @@ begin
                             when "1010" =>
                                 temp_buffer := SPACE_24;
                                 temp_count := 0;
-                                display_linha2_reg <= formatar_resposta(temp_buffer);
+                                dsp_line_2_reg <= format_answer(temp_buffer);
                                 update_req_reg <= '1';
                             
                             when others => null;
@@ -467,24 +468,24 @@ begin
                     end if;
                 
                 when S_CHECK =>
-                    resposta_usuario := calcular_valor(input_buffer);
-                    resposta_correta := to_integer(unsigned(questao_resposta));
+                    resposta_usuario := ASCII_to_integer(input_buffer);
+                    resposta_correta := to_integer(unsigned(question_answer));
                     
                     if resposta_usuario = resposta_correta then
-                        pontos <= pontos + 1;
-                        display_linha1_reg <= MSG_CORRECT;
+                        points <= points + 1;
+                        dsp_line_1_reg <= MSG_CORRECT;
                     else
-                        display_linha1_reg <= MSG_WRONG;
+                        dsp_line_1_reg <= MSG_WRONG;
                     end if;
                     
-                    display_linha2_reg <= MSG_NEXT;
+                    dsp_line_2_reg <= MSG_NEXT;
                     update_req_reg <= '1';
                     state <= S_RESULT;
                 
                 when S_RESULT =>
                     if key_valid = '1' and key_value = "1110" then
-                        if questao_atual < total_questoes - 1 then
-                            questao_atual <= questao_atual + 1;
+                        if current_question < total_questions - 1 then
+                            current_question <= current_question + 1;
                             input_buffer <= SPACE_24;
                             input_count <= 0;
                             state <= S_SAFEGUARD;
@@ -498,19 +499,19 @@ begin
                     end if;
                 
                 when S_FINISH =>
-                    case nivel_dificuldade is
-                        when 1 => display_linha1_reg <= MSG_LEVEL_EASY;
-                        when 2 => display_linha1_reg <= MSG_LEVEL_MED;
-                        when 3 => display_linha1_reg <= MSG_LEVEL_HARD;
-                        when others => display_linha1_reg <= MSG_FINISHED;
+                    case dificulty_level is
+                        when 1 => dsp_line_1_reg <= MSG_LEVEL_EASY;
+                        when 2 => dsp_line_1_reg <= MSG_LEVEL_MED;
+                        when 3 => dsp_line_1_reg <= MSG_LEVEL_HARD;
+                        when others => dsp_line_1_reg <= MSG_FINISHED;
                     end case;
                     
-                    -- Monta "Pontos: XX/YY" sem divisões
-                    display_linha2_reg(127 downto 72) <= MSG_SCORE_PRE;
-                    display_linha2_reg(71 downto 56) <= int_to_ascii_2digitos(pontos);
-                    display_linha2_reg(55 downto 48) <= CHAR_SLASH;
-                    display_linha2_reg(47 downto 32) <= int_to_ascii_2digitos(total_questoes);
-                    display_linha2_reg(31 downto 0) <= SPACE_32;
+                    -- Monta "points: XX/YY" sem divisões
+                    dsp_line_2_reg(127 downto 72) <= MSG_SCORE_PRE;
+                    dsp_line_2_reg(71 downto 56) <= int_to_ascii_2digits(points);
+                    dsp_line_2_reg(55 downto 48) <= CHAR_SLASH;
+                    dsp_line_2_reg(47 downto 32) <= int_to_ascii_2digits(total_questions);
+                    dsp_line_2_reg(31 downto 0) <= SPACE_32;
                     
                     update_req_reg <= '1';
                     
@@ -519,13 +520,13 @@ begin
                         state <= S_SAFEGUARD;
                         next_state <= S_IDLE;
                         safeguard_counter <= SAFETY_CYCLES;
-                        questao_atual <= 0;
+                        current_question <= 0;
                         input_buffer <= SPACE_24;
                         input_count <= 0;
-                        pontos <= 0;
+                        points <= 0;
                         -- Atualizar display imediatamente para tela inicial
-                        display_linha1_reg <= MSG_PRESS_START;
-                        display_linha2_reg <= MSG_TO_START;
+                        dsp_line_1_reg <= MSG_PRESS_START;
+                        dsp_line_2_reg <= MSG_TO_START;
                         update_req_reg <= '1';
                     end if;
                 

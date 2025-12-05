@@ -7,9 +7,9 @@ entity PS2_Keyboard_Buffered is
         clk         : in  std_logic;
         reset_n     : in  std_logic;
         ps2_clk     : in  std_logic;
-        ps2_data    : in  std_logic;
-        key_value   : out std_logic_vector(3 downto 0); 
-        key_valid   : out std_logic
+        ps2_data    : in  std_logic; 
+        key_valid   : out std_logic;
+        key_value   : out std_logic_vector(3 downto 0)
     );
 end entity PS2_Keyboard_Buffered;
 
@@ -26,17 +26,6 @@ architecture Behavioral of PS2_Keyboard_Buffered is
     signal data_byte       : std_logic_vector(7 downto 0) := (others => '0');
     signal data_valid      : std_logic := '0';
     
-    -- Buffer FIFO
-    type KEY_BUFFER_TYPE is array(0 to 7) of std_logic_vector(3 downto 0);
-    signal key_buffer : KEY_BUFFER_TYPE := (others => "1111");
-    signal wr_ptr : integer range 0 to 7 := 0;
-    signal rd_ptr : integer range 0 to 7 := 0;
-    signal buf_count : integer range 0 to 8 := 0;
-    
-    -- Sinais para anti-repeat e buffer
-    signal mapped_key_int  : std_logic_vector(3 downto 0) := (others => '0');
-    signal write_enable    : std_logic := '0';
-    
     signal expecting_break : std_logic := '0';
     signal key_state_map   : std_logic_vector(15 downto 0) := (others => '0');
 
@@ -44,37 +33,39 @@ architecture Behavioral of PS2_Keyboard_Buffered is
         return std_logic_vector is
     begin
         case scan_code is
-            when X"45" => return "0000"; -- 0
-            when X"16" => return "0001"; -- 1
-            when X"1E" => return "0010"; -- 2
-            when X"26" => return "0011"; -- 3
-            when X"25" => return "0100"; -- 4
-            when X"2E" => return "0101"; -- 5
-            when X"36" => return "0110"; -- 6
-            when X"3D" => return "0111"; -- 7
-            when X"3E" => return "1000"; -- 8
-            when X"46" => return "1001"; -- 9
-            -- Numpad
-            when X"70" => return "0000"; when X"69" => return "0001"; 
-            when X"72" => return "0010"; when X"7A" => return "0011"; 
-            when X"6B" => return "0100"; when X"73" => return "0101"; 
-            when X"74" => return "0110"; when X"6C" => return "0111"; 
-            when X"75" => return "1000"; when X"7D" => return "1001";
-            -- Comandos
-            when X"5A" => return "1110"; -- Enter (E)
-            when X"66" => return "1111"; -- Backspace (F)
-            when X"76" => return "1010"; -- ESCAPE (A)
-            when others => return "1011"; -- Inválido
+            when X"45" => return "0000";
+            when X"16" => return "0001";
+            when X"1E" => return "0010";
+            when X"26" => return "0011";
+            when X"25" => return "0100";
+            when X"2E" => return "0101";
+            when X"36" => return "0110";
+            when X"3D" => return "0111";
+            when X"3E" => return "1000";
+            when X"46" => return "1001";
+            when X"70" => return "0000";
+            when X"69" => return "0001";
+            when X"72" => return "0010";
+            when X"7A" => return "0011";
+            when X"6B" => return "0100";
+            when X"73" => return "0101";
+            when X"74" => return "0110";
+            when X"6C" => return "0111";
+            when X"75" => return "1000";
+            when X"7D" => return "1009";
+            when X"5A" => return "1110";
+            when X"66" => return "1111";
+            when X"76" => return "1010";
+            when others => return "1011";
         end case;
     end function;
 
 begin
 
-    -- Sincronização
     process(clk, reset_n)
     begin
         if reset_n = '0' then
-            ps2_clk_sync <= "111"; 
+            ps2_clk_sync <= "111";
             ps2_data_sync <= "11";
         elsif rising_edge(clk) then
             ps2_clk_sync <= ps2_clk_sync(1 downto 0) & ps2_clk;
@@ -82,15 +73,14 @@ begin
         end if;
     end process;
 
-    -- FSM: Captura Serial
     process(clk, reset_n)
         variable ps2_clk_falling : boolean;
     begin
         if reset_n = '0' then
-            state <= IDLE; 
+            state <= IDLE;
             shift_reg <= (others => '1');
-            bit_count <= 0; 
-            data_byte <= (others => '0'); 
+            bit_count <= 0;
+            data_byte <= (others => '0');
             data_valid <= '0';
         elsif rising_edge(clk) then
             ps2_clk_falling := (ps2_clk_sync(2 downto 1) = "10");
@@ -107,15 +97,15 @@ begin
                 when DATA_BITS =>
                     if ps2_clk_falling then
                         shift_reg <= ps2_data_sync(1) & shift_reg(10 downto 1);
-                        if bit_count = 7 then 
-                            state <= PARITY_BIT; 
+                        if bit_count = 7 then
+                            state <= PARITY_BIT;
                         end if;
                         bit_count <= bit_count + 1;
                     end if;
                     
                 when PARITY_BIT =>
                     if ps2_clk_falling then
-                        state <= STOP_BIT; 
+                        state <= STOP_BIT;
                         shift_reg <= ps2_data_sync(1) & shift_reg(10 downto 1);
                     end if;
                     
@@ -132,7 +122,6 @@ begin
         end if;
     end process;
 
-    -- Processo 1: Anti-Repeat + Pré-processamento
     process(clk, reset_n)
         variable mapped_key : std_logic_vector(3 downto 0);
         variable key_idx    : integer;
@@ -140,11 +129,11 @@ begin
         if reset_n = '0' then
             expecting_break <= '0';
             key_state_map   <= (others => '0');
-            mapped_key_int  <= (others => '0');
-            write_enable    <= '0';
+            key_value       <= (others => '0');
+            key_valid       <= '0';
             
         elsif rising_edge(clk) then
-            write_enable <= '0';  -- Reset pulso
+            key_valid <= '0';
             
             if data_valid = '1' then
                 if data_byte = X"F0" then
@@ -152,69 +141,26 @@ begin
                 else
                     mapped_key := scan_to_hex(data_byte);
                     
-                    if mapped_key /= "1011" then  -- Tecla válida
+                    if mapped_key /= "1011" then
                         key_idx := to_integer(unsigned(mapped_key));
                         
                         if expecting_break = '1' then
-                            -- Tecla liberada: reset no mapa de estados
                             key_state_map(key_idx) <= '0';
                             expecting_break <= '0';
-                            
                         else
-                            -- Tecla pressionada: verifica anti-repeat
                             if key_state_map(key_idx) = '0' then
-                                -- Primeira pressão (não está segurada)
-                                mapped_key_int <= mapped_key;
-                                write_enable <= '1';  -- Sinal para escrever no buffer
-                                key_state_map(key_idx) <= '1';  -- Marca como pressionada
+                                key_value <= mapped_key;
+                                key_valid <= '1';
+                                key_state_map(key_idx) <= '1';
                             end if;
-                            -- Se key_state_map já é '1', ignora (anti-repeat)
                         end if;
                     else
-                        -- Tecla inválida: limpa expecting_break se necessário
-                        if expecting_break = '1' then 
-                            expecting_break <= '0'; 
+                        if expecting_break = '1' then
+                            expecting_break <= '0';
                         end if;
                     end if;
                 end if;
             end if;
-        end if;
-    end process;
-
-    -- Processo 2: Gerenciamento do Buffer FIFO (combinado)
-    process(clk, reset_n)
-        variable next_buf_count : integer range 0 to 8;
-    begin
-        if reset_n = '0' then
-            wr_ptr <= 0;
-            rd_ptr <= 0;
-            buf_count <= 0;
-            key_buffer <= (others => "1111");
-            key_value <= (others => '0');
-            key_valid <= '0';
-            
-        elsif rising_edge(clk) then
-            -- Default values
-            key_valid <= '0';
-            next_buf_count := buf_count;
-            
-            -- 1. ESCREVER no buffer (se habilitado e não cheio)
-            if write_enable = '1' and buf_count < 8 then
-                key_buffer(wr_ptr) <= mapped_key_int;
-                wr_ptr <= (wr_ptr + 1) mod 8;
-                next_buf_count := next_buf_count + 1;
-            end if;
-            
-            -- 2. LER do buffer (se não vazio)
-            if buf_count > 0 then
-                key_value <= key_buffer(rd_ptr);
-                key_valid <= '1';
-                rd_ptr <= (rd_ptr + 1) mod 8;
-                next_buf_count := next_buf_count - 1;
-            end if;
-            
-            -- 3. Atualizar contador
-            buf_count <= next_buf_count;
         end if;
     end process;
 

@@ -30,12 +30,12 @@ architecture Behavioral of tb_Quiz_Core_Minimal_ClockBased is
     signal reset_n          : std_logic := '0';
     signal key_value        : std_logic_vector(3 downto 0) := (others => '0');
     signal key_valid        : std_logic := '0';
-    signal btn_start        : std_logic := '0';
-    signal questao_texto1   : std_logic_vector(127 downto 0) := (others => '0');
-    signal questao_resposta : std_logic_vector(7 downto 0) := (others => '0');
-    signal questao_index    : integer range 0 to 7;
-    signal display_linha1   : std_logic_vector(127 downto 0);
-    signal display_linha2   : std_logic_vector(127 downto 0);
+    signal start        : std_logic := '0';
+    signal question_text   : std_logic_vector(127 downto 0) := (others => '0');
+    signal question_answer : std_logic_vector(7 downto 0) := (others => '0');
+    signal question_id    : integer range 0 to 7;
+    signal dsp_line_1   : std_logic_vector(127 downto 0);
+    signal dsp_line_2   : std_logic_vector(127 downto 0);
     signal lcd_update_req   : std_logic;
     signal quiz_finished    : std_logic;
     
@@ -128,12 +128,12 @@ begin
             reset_n          => reset_n,
             key_value        => key_value,
             key_valid        => key_valid,
-            btn_start        => btn_start,
-            questao_texto1   => questao_texto1,
-            questao_resposta => questao_resposta,
-            questao_index    => questao_index,
-            display_linha1   => display_linha1,
-            display_linha2   => display_linha2,
+            start        => start,
+            question_text   => question_text,
+            question_answer => question_answer,
+            question_id    => question_id,
+            dsp_line_1   => dsp_line_1,
+            dsp_line_2   => dsp_line_2,
             lcd_update_req   => lcd_update_req,
             quiz_finished    => quiz_finished
         );
@@ -181,10 +181,10 @@ begin
                        ": FAIL - " & message severity error;
                 report "  Estado atual:" severity error;
                 report "    quiz_finished: " & std_logic'image(quiz_finished) severity error;
-                report "    questao_index: " & integer'image(questao_index) severity error;
+                report "    question_id: " & integer'image(question_id) severity error;
                 report "    lcd_update_req: " & std_logic'image(lcd_update_req) severity error;
-                report "    display_linha1: '" & display_to_string(display_linha1) & "'" severity error;
-                report "    display_linha2: '" & display_to_string(display_linha2) & "'" severity error;
+                report "    dsp_line_1: '" & display_to_string(dsp_line_1) & "'" severity error;
+                report "    dsp_line_2: '" & display_to_string(dsp_line_2) & "'" severity error;
                 tests_failed <= tests_failed + 1;
             end if;
             
@@ -195,9 +195,9 @@ begin
         procedure show_display_state(msg : string) is
         begin
             report "CLK " & integer'image(clock_count) & " - " & msg & ":" severity note;
-            report "  Linha 1: '" & display_to_string(display_linha1) & "'" severity note;
-            report "  Linha 2: '" & display_to_string(display_linha2) & "'" severity note;
-            report "  questao_index: " & integer'image(questao_index) & 
+            report "  Linha 1: '" & display_to_string(dsp_line_1) & "'" severity note;
+            report "  Linha 2: '" & display_to_string(dsp_line_2) & "'" severity note;
+            report "  question_id: " & integer'image(question_id) & 
                    ", lcd_update_req: " & std_logic'image(lcd_update_req) severity note;
         end procedure;
         
@@ -205,9 +205,9 @@ begin
         procedure press_start is
         begin
             report "CLK " & integer'image(clock_count) & " - Pressionando START" severity note;
-            btn_start <= '1';
+            start <= '1';
             wait_clocks(CYCLES_BUTTON_PRESS);
-            btn_start <= '0';
+            start <= '0';
             wait_clocks(CYCLES_DISPLAY_UPDATE);
             show_display_state("Após START");
         end procedure;
@@ -263,8 +263,8 @@ begin
             report "  Texto: '" & display_to_string(texto) & "'" severity note;
             report "  Resposta: " & integer'image(resposta) severity note;
             
-            questao_texto1 <= texto;
-            questao_resposta <= std_logic_vector(to_unsigned(resposta, 8));
+            question_text <= texto;
+            question_answer <= std_logic_vector(to_unsigned(resposta, 8));
             wait_clocks(CYCLES_QUESTION_CHANGE);
         end procedure;
         
@@ -295,18 +295,18 @@ begin
         -- TESTE 1: Verificar estado inicial
         report "=== TESTE 1: Verificando reset inicial ===" severity note;
         verify(quiz_finished = '0', "Quiz finished deve ser 0 após reset");
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Display linha1 deve mostrar mensagem de início");
-        verify(compare_strings(display_linha2, MSG_TO_START), 
+        verify(compare_strings(dsp_line_2, MSG_TO_START), 
                "Display linha2 deve mostrar mensagem de início");
         
         -- TESTE 2: Pressionar START
         report "=== TESTE 2: Testando botão START ===" severity note;
         press_start;
         
-        verify(compare_strings(display_linha1, MSG_MENU_TITLE), 
+        verify(compare_strings(dsp_line_1, MSG_MENU_TITLE), 
                "Deve mostrar título do menu após START");
-        verify(compare_strings(display_linha2, MSG_MENU_OPTS), 
+        verify(compare_strings(dsp_line_2, MSG_MENU_OPTS), 
                "Deve mostrar opções do menu");
         
         -- TESTE 3: Selecionar dificuldade 2
@@ -329,21 +329,21 @@ begin
             7);  -- Resposta = 7
         
         wait_for_state_change;
-        verify(questao_index = 0, "Questao index deve ser 0 na primeira questão");
+        verify(question_id = 0, "Questao index deve ser 0 na primeira questão");
         
         -- TESTE 5: Entrada de resposta correta
         report "=== TESTE 5: Testando entrada de resposta ===" severity note;
         send_key("0111", "Digitando resposta 7");
         
         -- Verificar se o dígito aparece na posição correta
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_7, 
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_7, 
                "Primeiro dígito deve ser 7");
         
         -- TESTE 6: Testar CLEAR
         report "=== TESTE 6: Testando tecla CLEAR ===" severity note;
         send_key("1111", "Limpando dígito");
         
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_SPACE, 
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_SPACE, 
                "Dígito deve ser apagado após CLEAR");
         
         -- TESTE 7: Entrada múltipla
@@ -353,18 +353,18 @@ begin
         send_key("0001", "Digitando 1");
         
         wait_clocks(3);
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_2, "Centena deve ser 2");
-        verify(display_linha2(14*8+7 downto 14*8) = CHAR_0, "Dezena deve ser 0");
-        verify(display_linha2(13*8+7 downto 13*8) = CHAR_1, "Unidade deve ser 1");
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_2, "Centena deve ser 2");
+        verify(dsp_line_2(14*8+7 downto 14*8) = CHAR_0, "Dezena deve ser 0");
+        verify(dsp_line_2(13*8+7 downto 13*8) = CHAR_1, "Unidade deve ser 1");
         
         -- TESTE 8: Enviar resposta errada
         report "=== TESTE 8: Testando resposta errada ===" severity note;
         send_key("1110", "Enviando resposta 201 (errada)");
         
         wait_for_state_change;
-        verify(compare_strings(display_linha1, MSG_WRONG), 
+        verify(compare_strings(dsp_line_1, MSG_WRONG), 
                "Deve mostrar mensagem de erro para resposta incorreta");
-        verify(compare_strings(display_linha2, MSG_NEXT), 
+        verify(compare_strings(dsp_line_2, MSG_NEXT), 
                "Deve mostrar mensagem para próxima questão");
         
         -- TESTE 9: Limpar tudo com tecla A
@@ -380,7 +380,7 @@ begin
             100);  -- Resposta = 100
         
         wait_for_state_change;
-        verify(questao_index = 1, "Questao index deve ser 1 na segunda questão");
+        verify(question_id = 1, "Questao index deve ser 1 na segunda questão");
         
         -- TESTE 10: Entrada de resposta correta (3 dígitos)
         report "=== TESTE 10: Testando resposta correta ===" severity note;
@@ -390,7 +390,7 @@ begin
         send_key("1110", "Enviando resposta 100 (correta)");
         
         wait_for_state_change;
-        verify(compare_strings(display_linha1, MSG_CORRECT), 
+        verify(compare_strings(dsp_line_1, MSG_CORRECT), 
                "Deve mostrar mensagem de correto para resposta 100");
         
         -- TESTE 11: Simular mais questões
@@ -408,7 +408,7 @@ begin
                 i * 10);  -- Resposta = i * 10
             
             wait_for_state_change;
-            verify(questao_index = i, 
+            verify(question_id = i, 
                    "Questao index deve ser " & integer'image(i));
             
             -- Inserir resposta correta
@@ -436,7 +436,7 @@ begin
         
         wait_for_state_change;
         verify(quiz_finished = '1', "Quiz finished deve ser 1 no final");
-        verify(display_linha1 = MSG_LEVEL_MED, 
+        verify(dsp_line_1 = MSG_LEVEL_MED, 
                "Deve mostrar nível médio (dificuldade 2 selecionada)");
         
         -- TESTE 13: Voltar ao início
@@ -444,7 +444,7 @@ begin
         send_key("1110", "Voltando ao início");
         
         wait_for_state_change;
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Deve voltar para tela inicial após final");
         
         -- TESTE 14: Testar cancelamento no menu
@@ -453,7 +453,7 @@ begin
         send_key("1010", "Cancelando com tecla A");
         
         wait_for_state_change;
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Deve voltar para início ao pressionar A no menu");
         
         -- TESTE 15: Testar dificuldade diferente

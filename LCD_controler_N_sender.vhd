@@ -1,39 +1,4 @@
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
 
-<<<<<<< Updated upstream
-entity LCD_CONTROLER is
-    generic (fclk: natural := 50_000_000); -- 50MHz , cristal do kit EE03
-    port (
-        -- Sinais de sistema
-        clk         : in  std_logic;  -- CORRIGIDO: de bit para std_logic
-        reset_n     : in  std_logic;
-        
-        -- Interface com Buffer Controller
-        data_line1  : in  std_logic_vector(127 downto 0);
-        data_line2  : in  std_logic_vector(127 downto 0);
-        update_cmd  : in  std_logic;
-        busy        : out std_logic;
-        
-        -- Interface com LCD físico
-        RS, RW      : out bit;
-        E           : buffer bit;  
-        DB          : out bit_vector(7 downto 0)
-    ); 
-end LCD_CONTROLER;
-
-architecture hardware of LCD_CONTROLER is
-    
-    -- Tipos de estado
-    type state is (
-        -- Estados de inicialização
-        FunctionSet1, FunctionSet2, FunctionSet3, FunctionSet4, FunctionSet5,
-        FunctionSet6, FunctionSet7, FunctionSet8, FunctionSet9, FunctionSet10,
-        FunctionSet11, FunctionSet12, FunctionSet13, FunctionSet14, FunctionSet15,
-        FunctionSet16, FunctionSet17, FunctionSet18, FunctionSet19,
-        ClearDisplay, DisplayControl, EntryMode, 
-        
-        -- Estados de operação normal
 =======
 entity LCD_CONTROLLER is
     generic (FCLK: natural := 50000000);
@@ -420,6 +385,16 @@ begin
     end process;
     
 end RTL;
+
+
+
+
+
+--========================================================= LCD_BUFFER
+
+
+
+
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;

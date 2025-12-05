@@ -32,12 +32,12 @@ architecture Behavioral of tb_Quiz_Core_Minimal_Hyper_Rigorous is
     signal reset_n          : std_logic := '0';
     signal key_value        : std_logic_vector(3 downto 0) := (others => '0');
     signal key_valid        : std_logic := '0';
-    signal btn_start        : std_logic := '0';
-    signal questao_texto1   : std_logic_vector(127 downto 0) := (others => '0');
-    signal questao_resposta : std_logic_vector(7 downto 0) := (others => '0');
-    signal questao_index    : integer range 0 to 7;
-    signal display_linha1   : std_logic_vector(127 downto 0);
-    signal display_linha2   : std_logic_vector(127 downto 0);
+    signal start            : std_logic := '0';
+    signal question_text    : std_logic_vector(127 downto 0) := (others => '0');
+    signal question_answer  : std_logic_vector(7 downto 0) := (others => '0');
+    signal question_id      : integer range 0 to 7;
+    signal dsp_line_1       : std_logic_vector(127 downto 0);
+    signal dsp_line_2       : std_logic_vector(127 downto 0);
     signal lcd_update_req   : std_logic;
     signal quiz_finished    : std_logic;
     
@@ -116,12 +116,12 @@ begin
             reset_n          => reset_n,
             key_value        => key_value,
             key_valid        => key_valid,
-            btn_start        => btn_start,
-            questao_texto1   => questao_texto1,
-            questao_resposta => questao_resposta,
-            questao_index    => questao_index,
-            display_linha1   => display_linha1,
-            display_linha2   => display_linha2,
+            start            => start,
+            question_text    => question_text,
+            question_answer  => question_answer,
+            question_id       => question_id,
+            dsp_line_1   => dsp_line_1,
+            dsp_line_2   => dsp_line_2,
             lcd_update_req   => lcd_update_req,
             quiz_finished    => quiz_finished
         );
@@ -178,7 +178,7 @@ begin
                 if show_state then
                     report "  Estado atual:" severity error;
                     report "    quiz_finished: " & std_logic'image(quiz_finished) severity error;
-                    report "    questao_index: " & integer'image(questao_index) severity error;
+                    report "    question_id: " & integer'image(question_id) severity error;
                     report "    lcd_update_req: " & std_logic'image(lcd_update_req) severity error;
                 end if;
                 tests_failed <= tests_failed + 1;
@@ -199,9 +199,9 @@ begin
         procedure press_start is
         begin
             report "CLK " & integer'image(clock_count) & " - Pressionando START" severity note;
-            btn_start <= '1';
+            start <= '1';
             wait_clocks(CYCLES_BUTTON_PRESS);
-            btn_start <= '0';
+            start <= '0';
             wait_clocks(CYCLES_DISPLAY_UPDATE);
         end procedure;
         
@@ -290,8 +290,8 @@ begin
                    " - Configurando questao " & integer'image(index) & 
                    " (resposta: " & integer'image(resposta) & ")" severity note;
             
-            questao_texto1 <= texto;
-            questao_resposta <= std_logic_vector(to_unsigned(resposta, 8));
+            question_text <= texto;
+            question_answer <= std_logic_vector(to_unsigned(resposta, 8));
             
             wait_clocks(CYCLES_QUESTION_CHANGE);
         end procedure;
@@ -387,15 +387,15 @@ begin
         send_key("1010", "Cancelar");
         
         report "TESTE 2.1.1: Usuario muito rapido" severity note;
-        btn_start <= '1';
+        start <= '1';
         wait_clocks(1);
-        btn_start <= '0';
+        start <= '0';
         wait_clocks(15);
         
         report "TESTE 2.1.2: Usuario lento (mantem pressionado)" severity note;
-        btn_start <= '1';
+        start <= '1';
         wait_clocks(20);
-        btn_start <= '0';
+        start <= '0';
         wait_clocks(15);
         
         -- ==================== SECAO 3: TESTES DE TECLADO ====================
@@ -563,7 +563,7 @@ begin
             wait_clocks(1);
             report "Clock " & integer'image(i) & " APOS enviar: quiz_finished = " & 
                    std_logic'image(quiz_finished) & 
-                   ", questao_index = " & integer'image(questao_index) severity note;
+                   ", question_id = " & integer'image(question_id) severity note;
         end loop;
         
         -- 4. Espera estabilizacao completa

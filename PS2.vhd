@@ -52,7 +52,7 @@ architecture Behavioral of PS2_Keyboard_Buffered is
             when X"74" => return "0110";
             when X"6C" => return "0111";
             when X"75" => return "1000";
-            when X"7D" => return "1009";
+            when X"7D" => return "1001";
             when X"5A" => return "1110";
             when X"66" => return "1111";
             when X"76" => return "1010";

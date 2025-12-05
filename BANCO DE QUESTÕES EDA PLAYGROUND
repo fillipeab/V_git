@@ -1,0 +1,64 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity Question_Bank is
+    generic ( TOTAL_QUESTIONS : integer := 8 );
+    port (
+        clk             : in  std_logic;
+        question_index  : in  integer; 
+        question_text1  : out std_logic_vector(127 downto 0);
+        correct_answer  : out std_logic_vector(7 downto 0)
+    );
+end entity Question_Bank;
+
+architecture Behavioral of Question_Bank is
+    function str_to_slv(s: string) return std_logic_vector is
+        variable result : std_logic_vector(127 downto 0) := (others => '0');
+        variable char_val : integer;
+    begin
+        for i in 1 to s'length loop
+            if i <= 16 then
+                char_val := character'pos(s(i));
+                result((16 - i) * 8 + 7 downto (16 - i) * 8) := std_logic_vector(to_unsigned(char_val, 8));
+            end if;
+        end loop;
+        return result;
+    end function;
+
+    function int_to_slv(val: integer) return std_logic_vector is
+    begin
+        return std_logic_vector(to_unsigned(val, 8));
+    end function;
+    
+    type T_QUESTION is record
+        text1 : std_logic_vector(127 downto 0);
+        answer : std_logic_vector(7 downto 0);
+    end record;
+    
+    type T_QUESTION_ARRAY is array (0 to 7) of T_QUESTION;
+    
+    constant QUESTIONS : T_QUESTION_ARRAY := (
+        0 => (text1 => str_to_slv("Q1: 7+8 = ?     "), answer => int_to_slv(15)),
+        1 => (text1 => str_to_slv("Q2: 12x4 = ?    "), answer => int_to_slv(48)),
+        2 => (text1 => str_to_slv("Q3: 45-18 = ?   "), answer => int_to_slv(27)),
+        3 => (text1 => str_to_slv("Q4: 81/9 = ?    "), answer => int_to_slv(9)),
+        4 => (text1 => str_to_slv("Q5: 15x6 = ?    "), answer => int_to_slv(90)),
+        5 => (text1 => str_to_slv("Q6: 125-47 = ?  "), answer => int_to_slv(78)),
+        6 => (text1 => str_to_slv("Q7: 11x11 = ?   "), answer => int_to_slv(121)),
+        7 => (text1 => str_to_slv("Q8: 144/12 = ?  "), answer => int_to_slv(12))
+    );
+begin
+    process(clk)
+    begin
+        if rising_edge(clk) then
+            if question_index >= 0 and question_index <= 7 then
+                question_text1 <= QUESTIONS(question_index).text1;
+                correct_answer <= QUESTIONS(question_index).answer;
+            else
+                question_text1 <= (others => '0');
+                correct_answer <= (others => '0');
+            end if;
+        end if;
+    end process;
+end architecture Behavioral;

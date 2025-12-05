@@ -21,12 +21,12 @@ architecture Behavioral of tb_Quiz_Core_Minimal_Enhanced is
     signal reset_n          : std_logic := '0';
     signal key_value        : std_logic_vector(3 downto 0) := (others => '0');
     signal key_valid        : std_logic := '0';
-    signal btn_start        : std_logic := '0';
-    signal questao_texto1   : std_logic_vector(127 downto 0) := (others => '0');
-    signal questao_resposta : std_logic_vector(7 downto 0) := (others => '0');
-    signal questao_index    : integer range 0 to 7;
-    signal display_linha1   : std_logic_vector(127 downto 0);
-    signal display_linha2   : std_logic_vector(127 downto 0);
+    signal start        : std_logic := '0';
+    signal question_text   : std_logic_vector(127 downto 0) := (others => '0');
+    signal question_answer : std_logic_vector(7 downto 0) := (others => '0');
+    signal question_id    : integer range 0 to 7;
+    signal dsp_line_1   : std_logic_vector(127 downto 0);
+    signal dsp_line_2   : std_logic_vector(127 downto 0);
     signal lcd_update_req   : std_logic;
     signal quiz_finished    : std_logic;
     
@@ -182,12 +182,12 @@ begin
             reset_n          => reset_n,
             key_value        => key_value,
             key_valid        => key_valid,
-            btn_start        => btn_start,
-            questao_texto1   => questao_texto1,
-            questao_resposta => questao_resposta,
-            questao_index    => questao_index,
-            display_linha1   => display_linha1,
-            display_linha2   => display_linha2,
+            start        => start,
+            question_text   => question_text,
+            question_answer => question_answer,
+            question_id    => question_id,
+            dsp_line_1   => dsp_line_1,
+            dsp_line_2   => dsp_line_2,
             lcd_update_req   => lcd_update_req,
             quiz_finished    => quiz_finished
         );
@@ -225,13 +225,13 @@ begin
                 report "TEST " & integer'image(test_number) & ": FAIL - " & message severity error;
                 report "  Estado atual:" severity error;
                 report "    quiz_finished: " & std_logic'image(quiz_finished) severity error;
-                report "    questao_index: " & integer'image(questao_index) severity error;
+                report "    question_id: " & integer'image(question_id) severity error;
                 report "    lcd_update_req: " & std_logic'image(lcd_update_req) severity error;
                 tests_failed <= tests_failed + 1;
             end if;
             
             if show_display then
-                display_debug_info(display_linha1, display_linha2, message);
+                display_debug_info(dsp_line_1, dsp_line_2, message);
             end if;
             
             test_number <= test_number + 1;
@@ -264,7 +264,7 @@ begin
             -- Mostrar estado após pressionar tecla
             if debug then
                 wait_cycles(2);
-                display_debug_info(display_linha1, display_linha2, 
+                display_debug_info(dsp_line_1, dsp_line_2, 
                                  "Após tecla " & to_hex_string(key));
             end if;
         end procedure;
@@ -274,11 +274,11 @@ begin
         begin
             report "=== RESUMO DE ESTADO: " & message & " ===" severity note;
             report "quiz_finished: " & std_logic'image(quiz_finished) severity note;
-            report "questao_index: " & integer'image(questao_index) severity note;
+            report "question_id: " & integer'image(question_id) severity note;
             report "lcd_update_req: " & std_logic'image(lcd_update_req) severity note;
-            report "questao_resposta: " & to_hex_string(questao_resposta) & 
-                   " (" & integer'image(to_integer(unsigned(questao_resposta))) & ")" severity note;
-            display_debug_info(display_linha1, display_linha2, "Estado atual do display");
+            report "question_answer: " & to_hex_string(question_answer) & 
+                   " (" & integer'image(to_integer(unsigned(question_answer))) & ")" severity note;
+            display_debug_info(dsp_line_1, dsp_line_2, "Estado atual do display");
             report "======================================" severity note;
         end procedure;
         
@@ -289,7 +289,7 @@ begin
         report "==========================================" severity note;
         
         reset_n <= '0';
-        btn_start <= '0';
+        start <= '0';
         key_value <= (others => '0');
         key_valid <= '0';
         
@@ -304,25 +304,25 @@ begin
         wait_cycles(2);
         
         verify(quiz_finished = '0', "Quiz finished deve ser 0 apos reset", true);
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Display linha1 deve mostrar mensagem de inicio", true);
-        verify(compare_strings(display_linha2, MSG_TO_START), 
+        verify(compare_strings(dsp_line_2, MSG_TO_START), 
                "Display linha2 deve mostrar mensagem de inicio", true);
         
         -- TESTE 2: Pressionar start
         report "TESTE 2: Testando botao start" severity note;
         show_state_summary("Antes de pressionar start");
         
-        btn_start <= '1';
+        start <= '1';
         wait_cycles(2);
-        btn_start <= '0';
+        start <= '0';
         
         -- Aguardar alguns ciclos para atualização
         wait_cycles(3);
         
-        verify(compare_strings(display_linha1, MSG_MENU_TITLE), 
+        verify(compare_strings(dsp_line_1, MSG_MENU_TITLE), 
                "Deve mostrar titulo do menu apos start", true);
-        verify(compare_strings(display_linha2, MSG_MENU_OPTS), 
+        verify(compare_strings(dsp_line_2, MSG_MENU_OPTS), 
                "Deve mostrar opcoes do menu", true);
         
         -- TESTE 3: Navegacao no menu - selecionar dificuldade 2
@@ -344,13 +344,13 @@ begin
         wait_cycles(SAFETY_CYCLES + 2);
         
         -- Configurar primeira questão para teste
-        questao_texto1 <= X"4E6F7661207175657374616F20312020"; -- "Nova questao 1"
-        questao_resposta <= X"37";  -- Resposta = 7
+        question_text <= X"4E6F7661207175657374616F20312020"; -- "Nova questao 1"
+        question_answer <= X"37";  -- Resposta = 7
         
-        questao_debug_info(questao_texto1, questao_resposta, questao_index);
+        questao_debug_info(question_text, question_answer, question_id);
         wait_cycles(5);
         
-        verify(questao_index = 0, "Questao index deve ser 0 na primeira questao", true);
+        verify(question_id = 0, "Questao index deve ser 0 na primeira questao", true);
         
         -- TESTE 5: Entrada de resposta
         report "TESTE 5: Testando entrada de resposta" severity note;
@@ -361,7 +361,7 @@ begin
         wait_cycles(2);
         
         -- Verificar buffer de entrada
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_7, 
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_7, 
                "Primeiro digito deve ser 7", true);
         
         -- TESTE 6: Apagar digito
@@ -371,7 +371,7 @@ begin
         send_key("1111");  -- Clear
         
         wait_cycles(2);
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_SPACE, 
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_SPACE, 
                "Digito deve ser apagado", true);
         
         -- TESTE 7: Entrada multipla
@@ -383,9 +383,9 @@ begin
         send_key("0001");  -- 1
         
         wait_cycles(3);
-        verify(display_linha2(15*8+7 downto 15*8) = CHAR_2, "Centena deve ser 2", true);
-        verify(display_linha2(14*8+7 downto 14*8) = CHAR_0, "Dezena deve ser 0", true);
-        verify(display_linha2(13*8+7 downto 13*8) = CHAR_1, "Unidade deve ser 1", true);
+        verify(dsp_line_2(15*8+7 downto 15*8) = CHAR_2, "Centena deve ser 2", true);
+        verify(dsp_line_2(14*8+7 downto 14*8) = CHAR_0, "Dezena deve ser 0", true);
+        verify(dsp_line_2(13*8+7 downto 13*8) = CHAR_1, "Unidade deve ser 1", true);
         
         -- TESTE 8: Enviar resposta errada
         report "TESTE 8: Testando resposta errada" severity note;
@@ -396,9 +396,9 @@ begin
         -- Aguardar verificação
         wait_cycles(5);
         
-        verify(compare_strings(display_linha1, MSG_WRONG), 
+        verify(compare_strings(dsp_line_1, MSG_WRONG), 
                "Deve mostrar mensagem de erro para resposta incorreta", true);
-        verify(compare_strings(display_linha2, MSG_NEXT), 
+        verify(compare_strings(dsp_line_2, MSG_NEXT), 
                "Deve mostrar mensagem para proxima questao", true);
         
         -- TESTE 9: Limpar entrada
@@ -408,10 +408,10 @@ begin
         send_key("1010");  -- Tecla A
         
         -- Voltar ao input (simulando nova questão)
-        questao_texto1 <= X"4E6F7661207175657374616F20322020"; -- "Nova questao 2"
-        questao_resposta <= X"64";  -- Resposta = 100
+        question_text <= X"4E6F7661207175657374616F20322020"; -- "Nova questao 2"
+        question_answer <= X"64";  -- Resposta = 100
         
-        questao_debug_info(questao_texto1, questao_resposta, questao_index);
+        questao_debug_info(question_text, question_answer, question_id);
         
         -- Ir para próxima questão
         send_key("1110");  -- Enter
@@ -428,7 +428,7 @@ begin
         send_key("1110");  -- Enter
         
         wait_cycles(5);
-        verify(compare_strings(display_linha1, MSG_CORRECT), 
+        verify(compare_strings(dsp_line_1, MSG_CORRECT), 
                "Deve mostrar mensagem de correto para resposta 100", true);
         
         -- TESTE 11: Simular quiz completo (questões 3-8)
@@ -442,16 +442,16 @@ begin
             wait_cycles(SAFETY_CYCLES + 2);
             
             -- Configurar nova questão
-            questao_texto1 <= X"4E6F7661207175657374616F20" & 
+            question_text <= X"4E6F7661207175657374616F20" & 
                             std_logic_vector(to_unsigned(48+i, 8)) & 
                             X"202020"; -- "Nova questao X"
-            questao_resposta <= std_logic_vector(to_unsigned(i*10, 8));
+            question_answer <= std_logic_vector(to_unsigned(i*10, 8));
             
-            questao_debug_info(questao_texto1, questao_resposta, questao_index);
+            questao_debug_info(question_text, question_answer, question_id);
             wait_cycles(2);
             
             -- Verificar índice da questão
-            verify(questao_index = i, "Questao index deve ser " & integer'image(i), true);
+            verify(question_id = i, "Questao index deve ser " & integer'image(i), true);
             
             -- Inserir resposta (sempre correta)
             case i is
@@ -490,15 +490,15 @@ begin
         wait_cycles(SAFETY_CYCLES + 5);
         
         verify(quiz_finished = '1', "Quiz finished deve ser 1 no final", true);
-        verify(display_linha1 = MSG_LEVEL_MED, 
+        verify(dsp_line_1 = MSG_LEVEL_MED, 
                "Deve mostrar nivel medio (dificuldade 2 selecionada)", true);
         
         -- Verificar pontuação (2 acertos em 6 questões para nível médio)
-        verify(display_linha2(127 downto 72) = MSG_SCORE_PRE, 
+        verify(dsp_line_2(127 downto 72) = MSG_SCORE_PRE, 
                "Deve mostrar prefixo de pontuacao", true);
         
         -- Exibir pontuação completa
-        report "Pontuação final mostrada: '" & display_to_string(display_linha2) & "'" severity note;
+        report "Pontuação final mostrada: '" & display_to_string(dsp_line_2) & "'" severity note;
         
         -- TESTE 13: Reset no meio do quiz
         report "TESTE 13: Testando reset durante o quiz" severity note;
@@ -510,7 +510,7 @@ begin
         wait_cycles(SAFETY_CYCLES + 5);
         
         -- Verificar se voltou ao início
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Deve voltar para tela inicial apos final", true);
         
         -- TESTE 14: Testar dificuldade 1 (4 questões)
@@ -518,9 +518,9 @@ begin
         show_state_summary("Antes de iniciar novo quiz");
         
         -- Iniciar novo quiz
-        btn_start <= '1';
+        start <= '1';
         wait_cycles(2);
-        btn_start <= '0';
+        start <= '0';
         wait_cycles(3);
         
         -- Selecionar dificuldade 1
@@ -536,12 +536,12 @@ begin
                 wait_cycles(SAFETY_CYCLES + 2);
             end if;
             
-            questao_texto1 <= X"5175657374616F20666163696C20" & 
+            question_text <= X"5175657374616F20666163696C20" & 
                             std_logic_vector(to_unsigned(48+i, 8)) & 
                             X"2020"; -- "Questao facil X"
-            questao_resposta <= std_logic_vector(to_unsigned(i+1, 8));
+            question_answer <= std_logic_vector(to_unsigned(i+1, 8));
             
-            questao_debug_info(questao_texto1, questao_resposta, questao_index);
+            questao_debug_info(question_text, question_answer, question_id);
             wait_cycles(2);
             
             -- Inserir resposta
@@ -556,16 +556,16 @@ begin
         show_state_summary("Antes de testar cancelamento");
         
         -- Iniciar novo quiz
-        btn_start <= '1';
+        start <= '1';
         wait_cycles(2);
-        btn_start <= '0';
+        start <= '0';
         wait_cycles(3);
         
         -- Pressionar A para cancelar
         send_key("1010");  -- Tecla A
         
         wait_cycles(3);
-        verify(compare_strings(display_linha1, MSG_PRESS_START), 
+        verify(compare_strings(dsp_line_1, MSG_PRESS_START), 
                "Deve voltar para inicio ao pressionar A no menu", true);
         
         -- Relatório final

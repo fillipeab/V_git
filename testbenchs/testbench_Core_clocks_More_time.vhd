@@ -31,12 +31,12 @@ architecture Behavioral of tb_Quiz_Core_Minimal_FF is
     signal reset_n          : std_logic := '0';
     signal key_value        : std_logic_vector(3 downto 0) := (others => '0');
     signal key_valid        : std_logic := '0';
-    signal btn_start        : std_logic := '0';
-    signal questao_texto1   : std_logic_vector(127 downto 0) := (others => '0');
-    signal questao_resposta : std_logic_vector(7 downto 0) := (others => '0');
-    signal questao_index    : integer range 0 to 7;
-    signal display_linha1   : std_logic_vector(127 downto 0);
-    signal display_linha2   : std_logic_vector(127 downto 0);
+    signal start        : std_logic := '0';
+    signal question_text   : std_logic_vector(127 downto 0) := (others => '0');
+    signal question_answer : std_logic_vector(7 downto 0) := (others => '0');
+    signal question_id    : integer range 0 to 7;
+    signal dsp_line_1   : std_logic_vector(127 downto 0);
+    signal dsp_line_2   : std_logic_vector(127 downto 0);
     signal lcd_update_req   : std_logic;
     signal quiz_finished    : std_logic;
     
@@ -165,12 +165,12 @@ begin
             reset_n          => reset_n,
             key_value        => key_value,
             key_valid        => key_valid,
-            btn_start        => btn_start,
-            questao_texto1   => questao_texto1,
-            questao_resposta => questao_resposta,
-            questao_index    => questao_index,
-            display_linha1   => display_linha1,
-            display_linha2   => display_linha2,
+            start        => start,
+            question_text   => question_text,
+            question_answer => question_answer,
+            question_id    => question_id,
+            dsp_line_1   => dsp_line_1,
+            dsp_line_2   => dsp_line_2,
             lcd_update_req   => lcd_update_req,
             quiz_finished    => quiz_finished
         );
@@ -224,10 +224,10 @@ begin
                 if show_on_fail then
                     report "  Estado atual:" severity error;
                     report "    quiz_finished: " & std_logic'image(quiz_finished) severity error;
-                    report "    questao_index: " & integer'image(questao_index) severity error;
+                    report "    question_id: " & integer'image(question_id) severity error;
                     report "    lcd_update_req: " & std_logic'image(lcd_update_req) severity error;
-                    report "    display_linha1: '" & display_to_string(display_linha1) & "'" severity error;
-                    report "    display_linha2: '" & display_to_string(display_linha2) & "'" severity error;
+                    report "    dsp_line_1: '" & display_to_string(dsp_line_1) & "'" severity error;
+                    report "    dsp_line_2: '" & display_to_string(dsp_line_2) & "'" severity error;
                 end if;
                 tests_failed <= tests_failed + 1;
             end if;
@@ -239,9 +239,9 @@ begin
         procedure show_display(msg : string) is
         begin
             report "CLK " & integer'image(clock_count) & " - " & msg & ":" severity note;
-            report "  Linha 1: '" & display_to_string(display_linha1) & "'" severity note;
-            report "  Linha 2: '" & display_to_string(display_linha2) & "'" severity note;
-            report "  Index: " & integer'image(questao_index) & 
+            report "  Linha 1: '" & display_to_string(dsp_line_1) & "'" severity note;
+            report "  Linha 2: '" & display_to_string(dsp_line_2) & "'" severity note;
+            report "  Index: " & integer'image(question_id) & 
                    ", LCD_update: " & std_logic'image(lcd_update_req) &
                    ", Finished: " & std_logic'image(quiz_finished) severity note;
         end procedure;
@@ -250,9 +250,9 @@ begin
         procedure press_start is
         begin
             report "CLK " & integer'image(clock_count) & " - Pressionando START" severity note;
-            btn_start <= '1';
+            start <= '1';
             wait_clocks(CYCLES_BUTTON_PRESS);
-            btn_start <= '0';
+            start <= '0';
             wait_clocks(CYCLES_DISPLAY_UPDATE);
             show_display("Apos START");
         end procedure;
@@ -316,8 +316,8 @@ begin
             report "  Texto: '" & display_to_string(texto) & "'" severity note;
             report "  Resposta: " & integer'image(resposta) severity note;
             
-            questao_texto1 <= texto;
-            questao_resposta <= std_logic_vector(to_unsigned(resposta, 8));
+            question_text <= texto;
+            question_answer <= std_logic_vector(to_unsigned(resposta, 8));
             
             -- Aguarda processamento da nova questão
             wait_clocks(CYCLES_QUESTION_CHANGE);
@@ -358,7 +358,7 @@ begin
         wait_clocks(10);
         
         -- Verifica display (com tolerância para timing da FPGA)
-        if compare_strings(display_linha1, MSG_PRESS_START, true) then
+        if compare_strings(dsp_line_1, MSG_PRESS_START, true) then
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Display linha1 mostra mensagem de inicio" severity note;
@@ -368,11 +368,11 @@ begin
                    " - TEST " & integer'image(test_number) & 
                    ": WARNING - Display linha1 pode estar inicializando" severity warning;
             report "  Esperado algo como: 'Pressione START'" severity warning;
-            report "  Obtido: '" & display_to_string(display_linha1) & "'" severity warning;
+            report "  Obtido: '" & display_to_string(dsp_line_1) & "'" severity warning;
         end if;
         test_number <= test_number + 1;
         
-        if compare_strings(display_linha2, MSG_TO_START, true) then
+        if compare_strings(dsp_line_2, MSG_TO_START, true) then
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Display linha2 mostra mensagem de inicio" severity note;
@@ -382,7 +382,7 @@ begin
                    " - TEST " & integer'image(test_number) & 
                    ": WARNING - Display linha2 pode estar inicializando" severity warning;
             report "  Esperado algo como: 'para comecar'" severity warning;
-            report "  Obtido: '" & display_to_string(display_linha2) & "'" severity warning;
+            report "  Obtido: '" & display_to_string(dsp_line_2) & "'" severity warning;
         end if;
         test_number <= test_number + 1;
         
@@ -390,9 +390,9 @@ begin
         report "=== TESTE 4-5: Testando botao START ===" severity note;
         press_start;
         
-        verify(compare_strings(display_linha1, MSG_MENU_TITLE, true), 
+        verify(compare_strings(dsp_line_1, MSG_MENU_TITLE, true), 
                "Deve mostrar titulo do menu apos START");
-        verify(compare_strings(display_linha2, MSG_MENU_OPTS, true), 
+        verify(compare_strings(dsp_line_2, MSG_MENU_OPTS, true), 
                "Deve mostrar opcoes do menu");
         
         -- TESTE 6: Selecionar dificuldade 2
@@ -412,7 +412,7 @@ begin
             7);  -- Resposta = 7
         
         wait_stabilization;
-        verify(questao_index = 0, "Questao index deve ser 0 na primeira questao");
+        verify(question_id = 0, "Questao index deve ser 0 na primeira questao");
         
         -- TESTE 8: Entrada de resposta (com timing ajustado)
         report "=== TESTE 8: Testando entrada de resposta ===" severity note;
@@ -422,9 +422,9 @@ begin
         wait_clocks(5);
         
         -- Verifica de forma mais flexível
-        if display_linha2(127 downto 120) = CHAR_7 or  -- Posição 15
-           display_linha2(119 downto 112) = CHAR_7 or  -- Posição 14  
-           display_linha2(111 downto 104) = CHAR_7 then -- Posição 13
+        if dsp_line_2(127 downto 120) = CHAR_7 or  -- Posição 15
+           dsp_line_2(119 downto 112) = CHAR_7 or  -- Posição 14  
+           dsp_line_2(111 downto 104) = CHAR_7 then -- Posição 13
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Digito 7 apareceu no display" severity note;
@@ -433,7 +433,7 @@ begin
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": WARNING - Digito 7 pode nao estar visivel ainda" severity warning;
-            report "  Display linha2: '" & display_to_string(display_linha2) & "'" severity warning;
+            report "  Display linha2: '" & display_to_string(dsp_line_2) & "'" severity warning;
         end if;
         test_number <= test_number + 1;
         
@@ -453,8 +453,8 @@ begin
         wait_clocks(5);
         
         -- Verifica apenas 2 dígitos (comportamento observado)
-        if display_linha2(127 downto 120) = CHAR_2 or  -- Posição 15
-           display_linha2(119 downto 112) = CHAR_2 then -- Posição 14
+        if dsp_line_2(127 downto 120) = CHAR_2 or  -- Posição 15
+           dsp_line_2(119 downto 112) = CHAR_2 then -- Posição 14
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Digito 2 apareceu" severity note;
@@ -471,9 +471,9 @@ begin
         send_key("1110", "Enviando resposta 201 (errada)", CYCLES_STATE_CHANGE);
         
         wait_stabilization;
-        verify(compare_strings(display_linha1, MSG_WRONG, true), 
+        verify(compare_strings(dsp_line_1, MSG_WRONG, true), 
                "Deve mostrar mensagem de erro para resposta incorreta");
-        verify(compare_strings(display_linha2, MSG_NEXT, true), 
+        verify(compare_strings(dsp_line_2, MSG_NEXT, true), 
                "Deve mostrar mensagem para proxima questao");
         
         -- TESTE 12: Avançar para próxima questão
@@ -486,7 +486,7 @@ begin
             100);  -- Resposta = 100
         
         wait_stabilization;
-        verify(questao_index = 1, "Questao index deve ser 1 na segunda questao");
+        verify(question_id = 1, "Questao index deve ser 1 na segunda questao");
         
         -- TESTE 13: Entrada de resposta correta (2 dígitos)
         report "=== TESTE 13: Testando resposta correta (2 digitos) ===" severity note;
@@ -497,7 +497,7 @@ begin
         wait_stabilization;
         
         -- Verifica se mostra correto (o DUT pode aceitar 10 como 100 se só lê 2 dígitos)
-        if compare_strings(display_linha1, MSG_CORRECT, true) then
+        if compare_strings(dsp_line_1, MSG_CORRECT, true) then
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Resposta considerada correta" severity note;
@@ -560,7 +560,7 @@ begin
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Quiz finished ativado" severity note;
             tests_passed <= tests_passed + 1;
-        elsif compare_strings(display_linha1, MSG_PRESS_START, true) then
+        elsif compare_strings(dsp_line_1, MSG_PRESS_START, true) then
             report "CLK " & integer'image(clock_count) & 
                    " - TEST " & integer'image(test_number) & 
                    ": PASS - Voltou ao inicio" severity note;

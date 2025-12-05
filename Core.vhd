@@ -1,91 +1,25 @@
--- =============================================================
--- PARTE 1: DEFINIÇÃO DO PACKAGE DE STRINGS (OBRIGATÓRIO)
--- =============================================================
-
-library ieee;
-use ieee.std_logic_1164.all;
-
-package Quiz_Strings_PKG is
-    -- ========== MENU ==========
-    constant MSG_MENU_TITLE : std_logic_vector(127 downto 0) := X"4469666963756c6461646520312d3320"; -- "Dificuldade 1-3 "
-    constant MSG_MENU_OPTS  : std_logic_vector(127 downto 0) := X"20312046202032204D20203320442020"; -- " 1 F   2 M   3 D  "
-    
-    -- ========== QUESTÕES ==========
-    constant MSG_RESP_TEMP  : std_logic_vector(127 downto 0) := X"526573706F7374613A20202020202020"; -- "Resposta:       "
-    
-    -- ========== RESULTADOS ==========
-    constant MSG_CORRECT    : std_logic_vector(127 downto 0) := X"436F727265746F21203A2D2920202020"; -- "Correto! :-)  "
-    constant MSG_WRONG      : std_logic_vector(127 downto 0) := X"45727261646F21203A2D282020202020"; -- "Errado! :-(  "
-    constant MSG_NEXT       : std_logic_vector(127 downto 0) := X"456E7465723A2050726F78696D6F2020"; -- "Enter: Proximo "
-    
-    -- ========== FINAL ==========
-    constant MSG_FINISHED   : std_logic_vector(127 downto 0) := X"5175697A2046696E616C697A61646F20"; -- "Quiz Finalizado"
-    constant MSG_LEVEL_EASY : std_logic_vector(127 downto 0) := X"4E6976656C3A20466163696C20202020"; -- "Nivel: Facil   "
-    constant MSG_LEVEL_MED  : std_logic_vector(127 downto 0) := X"4E6976656C3A204D6564696F20202020"; -- "Nivel: Medio   "
-    constant MSG_LEVEL_HARD : std_logic_vector(127 downto 0) := X"4E6976656C3A204469666963696C2020"; -- "Nivel: Dificil "
-    constant MSG_SCORE_PRE  : std_logic_vector(55 downto 0)  := X"506F6E746F733A"; -- "points: "
-    
-    -- ========== INÍCIO ==========
-    constant MSG_PRESS_START: std_logic_vector(127 downto 0) := X"50726573696F6E652053746172742020"; -- "Presione Start "
-    constant MSG_TO_START   : std_logic_vector(127 downto 0) := X"7061726120636F6D6563617220202020"; -- "para comecar   "
-    
-    -- ========== CARACTERES ==========
-    constant CHAR_UNDER     : std_logic_vector(7 downto 0)   := X"5F"; -- '_'
-    constant CHAR_SLASH     : std_logic_vector(7 downto 0)   := X"2F"; -- '/'
-    constant CHAR_SPACE     : std_logic_vector(7 downto 0)   := X"20"; -- ' '
-    constant CHAR_0         : std_logic_vector(7 downto 0)   := X"30"; -- '0'
-    constant CHAR_1         : std_logic_vector(7 downto 0)   := X"31"; -- '1'
-    constant CHAR_2         : std_logic_vector(7 downto 0)   := X"32"; -- '2'
-    constant CHAR_3         : std_logic_vector(7 downto 0)   := X"33"; -- '3'
-    constant CHAR_4         : std_logic_vector(7 downto 0)   := X"34"; -- '4'
-    constant CHAR_5         : std_logic_vector(7 downto 0)   := X"35"; -- '5'
-    constant CHAR_6         : std_logic_vector(7 downto 0)   := X"36"; -- '6'
-    constant CHAR_7         : std_logic_vector(7 downto 0)   := X"37"; -- '7'
-    constant CHAR_8         : std_logic_vector(7 downto 0)   := X"38"; -- '8'
-    constant CHAR_9         : std_logic_vector(7 downto 0)   := X"39"; -- '9'
-	
-    -- ========== SPACES ==========
-	constant SPACE_24 : std_logic_vector(23 downto 0) := 
-	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
-	constant SPACE_32 : std_logic_vector(31 downto 0) := 
-	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
-	constant SPACE_56 : std_logic_vector(55 downto 0) := 
-	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & CHAR_SPACE & 
-	CHAR_SPACE & CHAR_SPACE & CHAR_SPACE;
-	constant SPACE_128 : std_logic_vector(127 downto 0) := (others => '0');
-    
-end package Quiz_Strings_PKG;
-
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.Quiz_Strings_PKG.all;
 
-
--- =============================================================
--- PARTE 2: QUIZ CORE SIMPLIFICADO - COM CONTROLE DE TIMING MAS SEM LCD BUSY
--- =============================================================
--- =============================================================
--- PARTE 2: QUIZ CORE SIMPLIFICADO - COM CONTROLE DE TIMING MAS SEM LCD BUSY
--- =============================================================
-
 entity Quiz_Core_Minimal is
     generic (
-        MAX_QUESTOES_BANCO : integer := 8;  -- Máximo no banco
-        SAFETY_CYCLES      : integer := 50  -- Ciclos de espera após Enter
+        MAX_QUESTOES_BANCO : integer := 8;
+        SAFETY_CYCLES      : integer := 50
     );
     port (
         clk              : in  std_logic;
         reset_n          : in  std_logic;
-		start            : in  std_logic;
-		key_valid        : in  std_logic;
+        start            : in  std_logic;
+        key_valid        : in  std_logic;
         key_value        : in  std_logic_vector(3 downto 0);
         question_answer  : in  std_logic_vector(7 downto 0);
-		question_text    : in  std_logic_vector(127 downto 0);
-		
-        question_id    : out integer range 0 to 7;
-        dsp_line_1   : out std_logic_vector(127 downto 0);
-        dsp_line_2   : out std_logic_vector(127 downto 0);
+        question_text    : in  std_logic_vector(127 downto 0);
+        
+        question_id      : out integer range 0 to 7;
+        dsp_line_1       : out std_logic_vector(127 downto 0);
+        dsp_line_2       : out std_logic_vector(127 downto 0);
         lcd_update_req   : out std_logic;
         quiz_finished    : out std_logic
     );
@@ -112,11 +46,6 @@ architecture Behavioral of Quiz_Core_Minimal is
     signal update_req_reg     : std_logic := '0';
     signal next_state : T_QUIZ_STATE;
     
-    -- ============================================
-    -- FUNÇÕES SEM DIVISÃO
-    -- ============================================
-    
-    -- Converte binário para ASCII sem divisão
     function digit_to_ascii(digit : std_logic_vector(3 downto 0)) 
         return std_logic_vector is
     begin
@@ -135,94 +64,99 @@ architecture Behavioral of Quiz_Core_Minimal is
         end case;
     end function;
     
-    -- Formata resposta sem divisão
     function format_answer(buffer_in : std_logic_vector(23 downto 0))
         return std_logic_vector is
         variable linha : std_logic_vector(127 downto 0);
     begin
         linha := MSG_RESP_TEMP;
-        linha(15*8+7 downto 15*8) := buffer_in(23 downto 16);
-        linha(14*8+7 downto 14*8) := buffer_in(15 downto 8);
-        linha(13*8+7 downto 13*8) := buffer_in(7 downto 0);
+        linha(5*8+7 downto 5*8) := buffer_in(23 downto 16);
+        linha(4*8+7 downto 4*8) := buffer_in(15 downto 8);
+        linha(3*8+7 downto 3*8) := buffer_in(7 downto 0);
         return linha;
     end function;
     
-    -- Converte ASCII para inteiro sem multiplicação cara
     function ASCII_to_integer(buffer_in : std_logic_vector(23 downto 0))
         return integer is
         variable value : integer := 0;
         variable char1, char2, char3 : std_logic_vector(7 downto 0);
         variable digit : integer;
+        variable digits_found : integer := 0;
+        variable digit_values : array (1 to 3) of integer;
     begin
-        -- Extrai caracteres
         char1 := buffer_in(23 downto 16);
         char2 := buffer_in(15 downto 8);
         char3 := buffer_in(7 downto 0);
         
-        -- Processa dígito 1 (centena)
         if char1 /= CHAR_SPACE then
+            digits_found := digits_found + 1;
             case char1 is
-                when CHAR_0 => digit := 0;
-                when CHAR_1 => digit := 1;
-                when CHAR_2 => digit := 2;
-                when CHAR_3 => digit := 3;
-                when CHAR_4 => digit := 4;
-                when CHAR_5 => digit := 5;
-                when CHAR_6 => digit := 6;
-                when CHAR_7 => digit := 7;
-                when CHAR_8 => digit := 8;
-                when CHAR_9 => digit := 9;
-                when others => digit := 0;
+                when CHAR_0 => digit_values(digits_found) := 0;
+                when CHAR_1 => digit_values(digits_found) := 1;
+                when CHAR_2 => digit_values(digits_found) := 2;
+                when CHAR_3 => digit_values(digits_found) := 3;
+                when CHAR_4 => digit_values(digits_found) := 4;
+                when CHAR_5 => digit_values(digits_found) := 5;
+                when CHAR_6 => digit_values(digits_found) := 6;
+                when CHAR_7 => digit_values(digits_found) := 7;
+                when CHAR_8 => digit_values(digits_found) := 8;
+                when CHAR_9 => digit_values(digits_found) := 9;
+                when others => digit_values(digits_found) := 0;
             end case;
-            value := digit * 100;  -- Multiplicação por constante = shift + soma
         end if;
         
-        -- Processa dígito 2 (dozens)
         if char2 /= CHAR_SPACE then
+            digits_found := digits_found + 1;
             case char2 is
-                when CHAR_0 => digit := 0;
-                when CHAR_1 => digit := 1;
-                when CHAR_2 => digit := 2;
-                when CHAR_3 => digit := 3;
-                when CHAR_4 => digit := 4;
-                when CHAR_5 => digit := 5;
-                when CHAR_6 => digit := 6;
-                when CHAR_7 => digit := 7;
-                when CHAR_8 => digit := 8;
-                when CHAR_9 => digit := 9;
-                when others => digit := 0;
+                when CHAR_0 => digit_values(digits_found) := 0;
+                when CHAR_1 => digit_values(digits_found) := 1;
+                when CHAR_2 => digit_values(digits_found) := 2;
+                when CHAR_3 => digit_values(digits_found) := 3;
+                when CHAR_4 => digit_values(digits_found) := 4;
+                when CHAR_5 => digit_values(digits_found) := 5;
+                when CHAR_6 => digit_values(digits_found) := 6;
+                when CHAR_7 => digit_values(digits_found) := 7;
+                when CHAR_8 => digit_values(digits_found) := 8;
+                when CHAR_9 => digit_values(digits_found) := 9;
+                when others => digit_values(digits_found) := 0;
             end case;
-            value := value + digit * 10;
         end if;
         
-        -- Processa dígito 3 (unit)
         if char3 /= CHAR_SPACE then
+            digits_found := digits_found + 1;
             case char3 is
-                when CHAR_0 => digit := 0;
-                when CHAR_1 => digit := 1;
-                when CHAR_2 => digit := 2;
-                when CHAR_3 => digit := 3;
-                when CHAR_4 => digit := 4;
-                when CHAR_5 => digit := 5;
-                when CHAR_6 => digit := 6;
-                when CHAR_7 => digit := 7;
-                when CHAR_8 => digit := 8;
-                when CHAR_9 => digit := 9;
-                when others => digit := 0;
+                when CHAR_0 => digit_values(digits_found) := 0;
+                when CHAR_1 => digit_values(digits_found) := 1;
+                when CHAR_2 => digit_values(digits_found) := 2;
+                when CHAR_3 => digit_values(digits_found) := 3;
+                when CHAR_4 => digit_values(digits_found) := 4;
+                when CHAR_5 => digit_values(digits_found) := 5;
+                when CHAR_6 => digit_values(digits_found) := 6;
+                when CHAR_7 => digit_values(digits_found) := 7;
+                when CHAR_8 => digit_values(digits_found) := 8;
+                when CHAR_9 => digit_values(digits_found) := 9;
+                when others => digit_values(digits_found) := 0;
             end case;
-            value := value + digit;
         end if;
+        
+        case digits_found is
+            when 1 =>
+                value := digit_values(1);
+            when 2 =>
+                value := digit_values(1) * 10 + digit_values(2);
+            when 3 =>
+                value := digit_values(1) * 100 + digit_values(2) * 10 + digit_values(3);
+            when others =>
+                value := 0;
+        end case;
         
         return value;
     end function;
     
-    -- Converte inteiro para 2 dígitos ASCII SEM DIVISÃO
     function int_to_ascii_2digits(number : integer range 0 to 99)
         return std_logic_vector is
         variable result : std_logic_vector(15 downto 0);
         variable dozens, unit : integer;
     begin
-        -- Calcula dozens sem divisão (usando subtrações ou lookup)
         if number < 10 then
             dozens := 0;
             unit := number;
@@ -255,7 +189,6 @@ architecture Behavioral of Quiz_Core_Minimal is
             unit := number - 90;
         end if;
         
-        -- Converte dozens para ASCII
         case dozens is
             when 0 => result(15 downto 8) := CHAR_0;
             when 1 => result(15 downto 8) := CHAR_1;
@@ -270,7 +203,6 @@ architecture Behavioral of Quiz_Core_Minimal is
             when others => result(15 downto 8) := CHAR_SPACE;
         end case;
         
-        -- Converte unit para ASCII
         case unit is
             when 0 => result(7 downto 0) := CHAR_0;
             when 1 => result(7 downto 0) := CHAR_1;
@@ -288,7 +220,6 @@ architecture Behavioral of Quiz_Core_Minimal is
         return result;
     end function;
 
-
 begin
 
     question_id  <= current_question;
@@ -302,7 +233,6 @@ begin
         variable resposta_correta : integer;
         variable menu_digit : std_logic_vector(7 downto 0) := CHAR_SPACE;
         variable menu_has_digit : boolean := false;
-        -- Variáveis temporárias para o buffer de entrada
         variable temp_buffer : std_logic_vector(23 downto 0);
         variable temp_count : integer range 0 to 3;
         variable old_count : integer range 0 to 3;
@@ -316,8 +246,8 @@ begin
             current_question <= 0;
             dificulty_level <= 1;
             total_questions <= 4;
-            dsp_line_1_reg <= MSG_PRESS_START;  -- Corrigido: mostra mensagem inicial
-            dsp_line_2_reg <= MSG_TO_START;     -- Corrigido: mostra mensagem inicial
+            dsp_line_1_reg <= MSG_PRESS_START;
+            dsp_line_2_reg <= MSG_TO_START;
             update_req_reg <= '0';
             next_state <= S_IDLE;
             menu_digit := CHAR_SPACE;
@@ -326,7 +256,6 @@ begin
         elsif rising_edge(clk) then
             update_req_reg <= '0';
             
-            -- Inicializa variáveis temporárias com os valuees atuais
             temp_buffer := input_buffer;
             temp_count := input_count;
             
@@ -340,7 +269,6 @@ begin
                     end if;
                 
                 when S_IDLE =>
-                    -- CORREÇÃO: Sempre mostrar tela inicial quando no estado IDLE
                     if dsp_line_1_reg /= MSG_PRESS_START or dsp_line_2_reg /= MSG_TO_START then
                         dsp_line_1_reg <= MSG_PRESS_START;
                         dsp_line_2_reg <= MSG_TO_START;
@@ -363,7 +291,7 @@ begin
                                 menu_digit := digit_to_ascii(key_value);
                                 menu_has_digit := true;
                                 dsp_line_1_reg <= MSG_MENU_TITLE;
-                                dsp_line_2_reg(127 downto 64) <= X"4E6976656C3A2020"; -- "Nivel: "
+                                dsp_line_2_reg(127 downto 64) <= X"4E6976656C3A2020";
                                 dsp_line_2_reg(63 downto 56) <= menu_digit;
                                 dsp_line_2_reg(55 downto 0) <= SPACE_56;
                                 update_req_reg <= '1';
@@ -421,7 +349,6 @@ begin
                         case key_value is
                             when "0000" | "0001" | "0010" | "0011" | "0100" | "0101" | "0110" | "0111" | "1000" | "1001" =>
                                 if temp_count < 3 then
-                                    -- CORREÇÃO: Usar variável temporária para cálculo correto da posição
                                     case temp_count is
                                         when 0 => temp_buffer(23 downto 16) := digit_to_ascii(key_value);
                                         when 1 => temp_buffer(15 downto 8) := digit_to_ascii(key_value);
@@ -437,7 +364,6 @@ begin
                                 if temp_count > 0 then
                                     old_count := temp_count;
                                     temp_count := temp_count - 1;
-                                    -- CORREÇÃO: Apagar o dígito correto
                                     case old_count is
                                         when 1 => temp_buffer(23 downto 16) := CHAR_SPACE;
                                         when 2 => temp_buffer(15 downto 8) := CHAR_SPACE;
@@ -462,7 +388,6 @@ begin
                             when others => null;
                         end case;
                         
-                        -- Atualiza sinais com as variáveis temporárias
                         input_buffer <= temp_buffer;
                         input_count <= temp_count;
                     end if;
@@ -506,7 +431,6 @@ begin
                         when others => dsp_line_1_reg <= MSG_FINISHED;
                     end case;
                     
-                    -- Monta "points: XX/YY" sem divisões
                     dsp_line_2_reg(127 downto 72) <= MSG_SCORE_PRE;
                     dsp_line_2_reg(71 downto 56) <= int_to_ascii_2digits(points);
                     dsp_line_2_reg(55 downto 48) <= CHAR_SLASH;
@@ -515,7 +439,6 @@ begin
                     
                     update_req_reg <= '1';
                     
-                    -- CORREÇÃO: Garantir que o ENTER funcione para voltar ao início
                     if key_valid = '1' and key_value = "1110" then
                         state <= S_SAFEGUARD;
                         next_state <= S_IDLE;
@@ -524,7 +447,6 @@ begin
                         input_buffer <= SPACE_24;
                         input_count <= 0;
                         points <= 0;
-                        -- Atualizar display imediatamente para tela inicial
                         dsp_line_1_reg <= MSG_PRESS_START;
                         dsp_line_2_reg <= MSG_TO_START;
                         update_req_reg <= '1';

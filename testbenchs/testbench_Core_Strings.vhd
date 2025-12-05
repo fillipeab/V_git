@@ -3,10 +3,10 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.Quiz_Strings_PKG.all;
 
-entity tb_Quiz_Core_Minimal_Complete is
-end entity tb_Quiz_Core_Minimal_Complete;
+entity tb_Quiz_Core_Minimal_Assertive is
+end entity tb_Quiz_Core_Minimal_Assertive;
 
-architecture Behavioral of tb_Quiz_Core_Minimal_Complete is
+architecture Behavioral of tb_Quiz_Core_Minimal_Assertive is
     constant CLK_PERIOD : time := 20 ns;
     constant SAFETY_CYCLES : integer := 2;
     
@@ -50,20 +50,6 @@ architecture Behavioral of tb_Quiz_Core_Minimal_Complete is
         return result;
     end function;
     
-    function strings_match(str1 : std_logic_vector(127 downto 0); str2 : std_logic_vector(127 downto 0)) return boolean is
-        variable line1_str : string(1 to 16);
-        variable line2_str : string(1 to 16);
-    begin
-        line1_str := display_line_to_string(str1);
-        line2_str := display_line_to_string(str2);
-        for i in 1 to 16 loop
-            if line1_str(i) /= line2_str(i) and line1_str(i) /= '.' and line2_str(i) /= '.' then
-                return false;
-            end if;
-        end loop;
-        return true;
-    end function;
-    
     function to_hstring(slv: std_logic_vector) return string is
         constant hex_digits: string(1 to 16) := "0123456789ABCDEF";
         variable result: string(1 to (slv'length+3)/4);
@@ -75,13 +61,6 @@ architecture Behavioral of tb_Quiz_Core_Minimal_Complete is
             temp := temp(temp'high-4 downto 0) & "0000";
         end loop;
         return result;
-    end function;
-    
-    function display_debug_info(display_line: std_logic_vector(127 downto 0); line_num: integer) return string is
-    begin
-        return "Line " & integer'image(line_num) & ": '" & 
-               display_line_to_string(display_line) & "' Hex=" & 
-               to_hstring(display_line);
     end function;
 
 begin
@@ -122,34 +101,93 @@ begin
             wait for 1 ns;
         end procedure;
         
-        procedure display_check(message : string) is
+        procedure assert_and_report(
+            condition : boolean;
+            message : string;
+            display_current : boolean := true
+        ) is
         begin
-            report "CLK " & integer'image(clock_count) & " - " & message severity note;
-            report "  " & display_debug_info(dsp_line_1, 1) severity note;
-            report "  " & display_debug_info(dsp_line_2, 2) severity note;
-        end procedure;
-        
-        procedure verify(message : string; cond : boolean) is
-        begin
-            if cond then
-                report "TEST " & integer'image(test_number) & ": PASS - " & message severity note;
+            if display_current then
+                report "CLK " & integer'image(clock_count) & " - TEST " & integer'image(test_number) & ": " severity note;
+                report "  Line 1: '" & display_line_to_string(dsp_line_1) & "'" severity note;
+                report "  Line 2: '" & display_line_to_string(dsp_line_2) & "'" severity note;
+                report "  State: finished=" & std_logic'image(quiz_finished) & 
+                       ", update_req=" & std_logic'image(lcd_update_req) & 
+                       ", q_id=" & integer'image(question_id) severity note;
+            end if;
+            
+            if condition then
+                report "  PASS - " & message severity note;
                 tests_passed <= tests_passed + 1;
             else
-                report "TEST " & integer'image(test_number) & ": FAIL - " & message severity error;
+                report "  FAIL - " & message severity error;
                 tests_failed <= tests_failed + 1;
             end if;
             test_number <= test_number + 1;
         end procedure;
         
-        procedure verify_display(expected_line1, expected_line2 : std_logic_vector(127 downto 0); message : string) is
+        procedure assert_display(
+            expected_line1 : std_logic_vector(127 downto 0);
+            expected_line2 : std_logic_vector(127 downto 0);
+            message : string
+        ) is
+            variable actual_line1_str : string(1 to 16);
+            variable actual_line2_str : string(1 to 16);
+            variable expected_line1_str : string(1 to 16);
+            variable expected_line2_str : string(1 to 16);
+            variable line1_match : boolean := true;
+            variable line2_match : boolean := true;
         begin
-            display_check(message);
-            verify("Line1: " & message, strings_match(dsp_line_1, expected_line1));
-            verify("Line2: " & message, strings_match(dsp_line_2, expected_line2));
+            wait until rising_edge(clk);
+            wait for 1 ns;
+            
+            actual_line1_str := display_line_to_string(dsp_line_1);
+            actual_line2_str := display_line_to_string(dsp_line_2);
+            expected_line1_str := display_line_to_string(expected_line1);
+            expected_line2_str := display_line_to_string(expected_line2);
+            
+            report "CLK " & integer'image(clock_count) & " - TEST " & integer'image(test_number) & ": " & message severity note;
+            report "  Line 1 actual:   '" & actual_line1_str & "'" severity note;
+            report "  Line 1 expected: '" & expected_line1_str & "'" severity note;
+            report "  Line 2 actual:   '" & actual_line2_str & "'" severity note;
+            report "  Line 2 expected: '" & expected_line2_str & "'" severity note;
+            
+            for i in 1 to 16 loop
+                if actual_line1_str(i) /= expected_line1_str(i) and 
+                   actual_line1_str(i) /= '.' and expected_line1_str(i) /= '.' then
+                    line1_match := false;
+                end if;
+                if actual_line2_str(i) /= expected_line2_str(i) and 
+                   actual_line2_str(i) /= '.' and expected_line2_str(i) /= '.' then
+                    line2_match := false;
+                end if;
+            end loop;
+            
+            if line1_match then
+                report "  Line 1 matches" severity note;
+            else
+                report "  Line 1 mismatch" severity error;
+            end if;
+            
+            if line2_match then
+                report "  Line 2 matches" severity note;
+            else
+                report "  Line 2 mismatch" severity error;
+            end if;
+            
+            if line1_match and line2_match then
+                tests_passed <= tests_passed + 1;
+            else
+                tests_failed <= tests_failed + 1;
+            end if;
+            
+            test_number <= test_number + 1;
+            report "----------------------------------------" severity note;
         end procedure;
         
         procedure press_start is
         begin
+            report ">>> Pressing START" severity note;
             start <= '1';
             wait until rising_edge(clk);
             start <= '0';
@@ -157,8 +195,29 @@ begin
         end procedure;
         
         procedure send_key(key : std_logic_vector(3 downto 0); desc : string) is
+            variable key_name : string(1 to 10);
         begin
-            report "  Sending key: " & desc severity note;
+            case key is
+                when "0000" => key_name := "Key 0     ";
+                when "0001" => key_name := "Key 1     ";
+                when "0010" => key_name := "Key 2     ";
+                when "0011" => key_name := "Key 3     ";
+                when "0100" => key_name := "Key 4     ";
+                when "0101" => key_name := "Key 5     ";
+                when "0110" => key_name := "Key 6     ";
+                when "0111" => key_name := "Key 7     ";
+                when "1000" => key_name := "Key 8     ";
+                when "1001" => key_name := "Key 9     ";
+                when "1010" => key_name := "Key A     ";
+                when "1011" => key_name := "Key B     ";
+                when "1100" => key_name := "Key C     ";
+                when "1101" => key_name := "Key D     ";
+                when "1110" => key_name := "ENTER     ";
+                when "1111" => key_name := "CLEAR     ";
+                when others => key_name := "UNKNOWN   ";
+            end case;
+            
+            report "  >>> Sending key: " & desc & " (" & key_name & ")" severity note;
             key_value <= key;
             key_valid <= '1';
             wait until rising_edge(clk);
@@ -170,6 +229,9 @@ begin
         begin
             question_text <= text;
             question_answer <= std_logic_vector(to_unsigned(answer, 8));
+            report ">>> Setting question " & integer'image(id) & 
+                   " - Answer: " & integer'image(answer) severity note;
+            report "  Text: '" & display_line_to_string(text) & "'" severity note;
             wait_clocks(5);
         end procedure;
         
@@ -178,130 +240,135 @@ begin
         constant Q3_TEXT : std_logic_vector(127 downto 0) := X"5120333A203530302F35203D203F2020";
         
     begin
-        report "=== STARTING STRING VERIFICATION TEST ===" severity note;
+        report "==================================================" severity note;
+        report "STARTING ASSERTIVE TESTS" severity note;
+        report "==================================================" severity note;
         
         reset_n <= '0';
         wait_clocks(20);
         reset_n <= '1';
         wait_clocks(15);
         
-        verify_display(MSG_PRESS_START, MSG_TO_START, "Initial screen after reset");
+        assert_and_report(quiz_finished = '0', "Quiz finished should be 0 after reset");
+        assert_display(MSG_PRESS_START, MSG_TO_START, "Initial screen after reset");
         
         press_start;
         wait_clocks(10);
-        verify_display(MSG_MENU_TITLE, MSG_MENU_OPTS, "Menu after START");
+        assert_display(MSG_MENU_TITLE, MSG_MENU_OPTS, "Menu after START");
         
         send_key("0010", "Select difficulty 2");
         wait_clocks(5);
-        display_check("After selecting difficulty 2");
+        assert_and_report(true, "After selecting difficulty 2");
         
-        send_key("1110", "Confirm selection");
+        send_key("1110", "ENTER to confirm");
         wait_clocks(SAFETY_CYCLES + 5);
         
         set_question(0, Q1_TEXT, 4);
         wait_clocks(10);
-        display_check("Question 1 loaded");
-        verify("Question ID should be 0", question_id = 0);
+        assert_and_report(question_id = 0, "Question 1 loaded (ID should be 0)");
         
         send_key("0100", "Type '4'");
         wait_clocks(5);
-        display_check("After typing answer '4'");
+        assert_and_report(true, "After typing '4'");
         
-        send_key("1110", "Submit answer");
+        send_key("1110", "ENTER to submit answer");
         wait_clocks(SAFETY_CYCLES + 5);
-        verify_display(MSG_CORRECT, MSG_NEXT, "After correct answer");
+        assert_display(MSG_CORRECT, MSG_NEXT, "After correct answer");
         
-        send_key("1110", "Next question");
+        send_key("1110", "ENTER for next question");
         wait_clocks(SAFETY_CYCLES + 5);
         
         set_question(1, Q2_TEXT, 300);
         wait_clocks(10);
-        display_check("Question 2 loaded");
-        verify("Question ID should be 1", question_id = 1);
+        assert_and_report(question_id = 1, "Question 2 loaded (ID should be 1)");
         
         send_key("0010", "Type '2'");
         send_key("0101", "Type '5'");
         send_key("0000", "Type '0'");
         wait_clocks(5);
-        display_check("After typing '250' (wrong answer)");
+        assert_and_report(true, "After typing '250' (wrong answer)");
         
-        send_key("1110", "Submit wrong answer");
+        send_key("1110", "ENTER to submit wrong answer");
         wait_clocks(SAFETY_CYCLES + 5);
-        verify_display(MSG_WRONG, MSG_NEXT, "After wrong answer");
+        assert_display(MSG_WRONG, MSG_NEXT, "After wrong answer");
         
-        send_key("1110", "Next question");
+        send_key("1110", "ENTER for next question");
         wait_clocks(SAFETY_CYCLES + 5);
         
         set_question(2, Q3_TEXT, 100);
         wait_clocks(10);
-        display_check("Question 3 loaded");
+        assert_and_report(true, "Question 3 loaded");
         
         send_key("0001", "Type '1'");
         send_key("0010", "Type '2'");
         send_key("0011", "Type '3'");
         wait_clocks(5);
-        display_check("After typing '123'");
+        assert_and_report(true, "After typing '123'");
         
-        send_key("1111", "CLEAR - erase last digit");
+        send_key("1111", "CLEAR to erase last digit");
         wait_clocks(5);
-        display_check("After first CLEAR");
+        assert_and_report(true, "After first CLEAR");
         
-        send_key("1111", "CLEAR - erase second digit");
+        send_key("1111", "CLEAR to erase second digit");
         wait_clocks(5);
-        display_check("After second CLEAR");
+        assert_and_report(true, "After second CLEAR");
         
-        send_key("1111", "CLEAR - erase first digit");
+        send_key("1111", "CLEAR to erase first digit");
         wait_clocks(5);
-        display_check("After third CLEAR");
+        assert_and_report(true, "After third CLEAR");
         
         send_key("0001", "Type '1'");
         send_key("0000", "Type '0'");
         send_key("0000", "Type '0'");
-        send_key("1110", "Submit answer '100'");
+        send_key("1110", "ENTER to submit '100'");
         wait_clocks(SAFETY_CYCLES + 5);
+        assert_display(MSG_CORRECT, MSG_NEXT, "After correct answer for Q3");
         
-        verify_display(MSG_CORRECT, MSG_NEXT, "After correct answer for Q3");
-        
-        report "=== TEST COMPLETION SIMULATION ===" severity note;
+        report ">>> COMPLETING QUIZ (level 2 has 6 questions)" severity note;
         
         for i in 3 to 5 loop
-            send_key("1110", "Next question to complete level");
+            send_key("1110", "ENTER for next question");
             wait_clocks(SAFETY_CYCLES + 5);
-            set_question(i, X"5175657374616F20" & std_logic_vector(to_unsigned(48+i, 8)) & X"2020202020202020", i*10);
-            send_key(std_logic_vector(to_unsigned(i mod 10, 4)), "Answer digit");
-            send_key("1110", "Submit");
+            set_question(i, 
+                X"512020" & std_logic_vector(to_unsigned(48+i, 8)) & 
+                X"3A2054657374205120" & 
+                std_logic_vector(to_unsigned(48+i, 8)) & 
+                X"20202020", 
+                10+i
+            );
+            send_key(std_logic_vector(to_unsigned((i mod 9) + 1, 4)), "Type answer");
+            send_key("1110", "ENTER to submit");
             wait_clocks(SAFETY_CYCLES + 5);
         end loop;
         
-        send_key("1110", "Final question");
-        wait_clocks(SAFETY_CYCLES + 5);
-        set_question(6, X"46696E616C205175657374696F6E2020", 99);
-        send_key("1001", "9");
-        send_key("1001", "9");
-        send_key("1110", "Submit final answer");
-        wait_clocks(SAFETY_CYCLES + 10);
+        wait_clocks(20);
+        assert_and_report(quiz_finished = '1', "Quiz should be finished after 6 questions");
         
-        display_check("Final screen should show level and score");
-        
-        verify("Quiz should be finished", quiz_finished = '1');
-        
-        send_key("1110", "Return to start");
+        send_key("1110", "ENTER to return to start");
         wait_clocks(SAFETY_CYCLES + 5);
         
-        verify_display(MSG_PRESS_START, MSG_TO_START, "Back to initial screen");
-        verify("Quiz should not be finished", quiz_finished = '0');
+        assert_display(MSG_PRESS_START, MSG_TO_START, "Should return to initial screen");
+        assert_and_report(quiz_finished = '0', "Quiz should not be finished anymore");
         
-        report "=== TEST SUMMARY ===" severity note;
-        report "Tests passed: " & integer'image(tests_passed) severity note;
-        report "Tests failed: " & integer'image(tests_failed) severity note;
-        report "Total tests: " & integer'image(test_number - 1) severity note;
+        report "==================================================" severity note;
+        report "FINAL TEST REPORT" severity note;
+        report "==================================================" severity note;
+        report "TOTAL TESTS EXECUTED: " & integer'image(test_number - 1) severity note;
+        report "TESTS PASSED:         " & integer'image(tests_passed) severity note;
+        report "TESTS FAILED:         " & integer'image(tests_failed) severity note;
         
-        if tests_failed = 0 then
-            report "ALL TESTS PASSED" severity note;
-        else
-            report "SOME TESTS FAILED" severity error;
+        if test_number > 1 then
+            report "SUCCESS RATE:         " & 
+                   integer'image((tests_passed * 100) / (test_number - 1)) & "%" severity note;
         end if;
         
+        if tests_failed = 0 then
+            report "SUCCESS: ALL TESTS PASSED!" severity note;
+        else
+            report "WARNING: " & integer'image(tests_failed) & " TESTS FAILED!" severity error;
+        end if;
+        
+        report "==================================================" severity note;
         wait;
     end process;
 end architecture Behavioral;

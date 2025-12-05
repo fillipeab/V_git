@@ -1,6 +1,42 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+
+package Quiz_Strings_PKG is
+    constant MSG_MENU_TITLE : std_logic_vector(127 downto 0) := X"4469666963756C6461646520312D3320";
+    constant MSG_MENU_OPTS  : std_logic_vector(127 downto 0) := X"20312046202032204D20203320442020";
+    constant MSG_RESP_TEMP  : std_logic_vector(127 downto 0) := X"526573706F7374613A20202020202020";
+    constant MSG_CORRECT    : std_logic_vector(127 downto 0) := X"436F727265746F21203A2D2920202020";
+    constant MSG_WRONG      : std_logic_vector(127 downto 0) := X"45727261646F21203A2D282020202020";
+    constant MSG_NEXT       : std_logic_vector(127 downto 0) := X"456E7465723A2050726F78696D6F2020";
+    constant MSG_FINISHED   : std_logic_vector(127 downto 0) := X"5175697A2046696E616C697A61646F20";
+    constant MSG_LEVEL_EASY : std_logic_vector(127 downto 0) := X"4E6976656C3A20466163696C20202020";
+    constant MSG_LEVEL_MED  : std_logic_vector(127 downto 0) := X"4E6976656C3A204D6564696F20202020";
+    constant MSG_LEVEL_HARD : std_logic_vector(127 downto 0) := X"4E6976656C3A204469666963696C2020";
+    constant MSG_SCORE_PRE  : std_logic_vector(55 downto 0)  := X"506F6E746F733A";
+    constant MSG_PRESS_START: std_logic_vector(127 downto 0) := X"50726573696F6E652053746172742020";
+    constant MSG_TO_START   : std_logic_vector(127 downto 0) := X"7061726120636F6D6563617220202020";
+    constant CHAR_UNDER     : std_logic_vector(7 downto 0)   := X"5F";
+    constant CHAR_SLASH     : std_logic_vector(7 downto 0)   := X"2F";
+    constant CHAR_SPACE     : std_logic_vector(7 downto 0)   := X"20";
+    constant CHAR_0         : std_logic_vector(7 downto 0)   := X"30";
+    constant CHAR_1         : std_logic_vector(7 downto 0)   := X"31";
+    constant CHAR_2         : std_logic_vector(7 downto 0)   := X"32";
+    constant CHAR_3         : std_logic_vector(7 downto 0)   := X"33";
+    constant CHAR_4         : std_logic_vector(7 downto 0)   := X"34";
+    constant CHAR_5         : std_logic_vector(7 downto 0)   := X"35";
+    constant CHAR_6         : std_logic_vector(7 downto 0)   := X"36";
+    constant CHAR_7         : std_logic_vector(7 downto 0)   := X"37";
+    constant CHAR_8         : std_logic_vector(7 downto 0)   := X"38";
+    constant CHAR_9         : std_logic_vector(7 downto 0)   := X"39";
+    constant SPACE_24 : std_logic_vector(23 downto 0) := X"202020";
+    constant SPACE_32 : std_logic_vector(31 downto 0) := X"20202020";
+    constant SPACE_56 : std_logic_vector(55 downto 0) := X"20202020202020";
+end package Quiz_Strings_PKG;
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 use work.Quiz_Strings_PKG.all;
 
 entity Quiz_Core_Minimal is
@@ -79,9 +115,8 @@ architecture Behavioral of Quiz_Core_Minimal is
         return integer is
         variable value : integer := 0;
         variable char1, char2, char3 : std_logic_vector(7 downto 0);
-        variable digit : integer;
+        variable digit1, digit2, digit3 : integer := 0;
         variable digits_found : integer := 0;
-        variable digit_values : array (1 to 3) of integer;
     begin
         char1 := buffer_in(23 downto 16);
         char2 := buffer_in(15 downto 8);
@@ -90,61 +125,61 @@ architecture Behavioral of Quiz_Core_Minimal is
         if char1 /= CHAR_SPACE then
             digits_found := digits_found + 1;
             case char1 is
-                when CHAR_0 => digit_values(digits_found) := 0;
-                when CHAR_1 => digit_values(digits_found) := 1;
-                when CHAR_2 => digit_values(digits_found) := 2;
-                when CHAR_3 => digit_values(digits_found) := 3;
-                when CHAR_4 => digit_values(digits_found) := 4;
-                when CHAR_5 => digit_values(digits_found) := 5;
-                when CHAR_6 => digit_values(digits_found) := 6;
-                when CHAR_7 => digit_values(digits_found) := 7;
-                when CHAR_8 => digit_values(digits_found) := 8;
-                when CHAR_9 => digit_values(digits_found) := 9;
-                when others => digit_values(digits_found) := 0;
+                when CHAR_0 => digit1 := 0;
+                when CHAR_1 => digit1 := 1;
+                when CHAR_2 => digit1 := 2;
+                when CHAR_3 => digit1 := 3;
+                when CHAR_4 => digit1 := 4;
+                when CHAR_5 => digit1 := 5;
+                when CHAR_6 => digit1 := 6;
+                when CHAR_7 => digit1 := 7;
+                when CHAR_8 => digit1 := 8;
+                when CHAR_9 => digit1 := 9;
+                when others => digit1 := 0;
             end case;
         end if;
         
         if char2 /= CHAR_SPACE then
             digits_found := digits_found + 1;
             case char2 is
-                when CHAR_0 => digit_values(digits_found) := 0;
-                when CHAR_1 => digit_values(digits_found) := 1;
-                when CHAR_2 => digit_values(digits_found) := 2;
-                when CHAR_3 => digit_values(digits_found) := 3;
-                when CHAR_4 => digit_values(digits_found) := 4;
-                when CHAR_5 => digit_values(digits_found) := 5;
-                when CHAR_6 => digit_values(digits_found) := 6;
-                when CHAR_7 => digit_values(digits_found) := 7;
-                when CHAR_8 => digit_values(digits_found) := 8;
-                when CHAR_9 => digit_values(digits_found) := 9;
-                when others => digit_values(digits_found) := 0;
+                when CHAR_0 => digit2 := 0;
+                when CHAR_1 => digit2 := 1;
+                when CHAR_2 => digit2 := 2;
+                when CHAR_3 => digit2 := 3;
+                when CHAR_4 => digit2 := 4;
+                when CHAR_5 => digit2 := 5;
+                when CHAR_6 => digit2 := 6;
+                when CHAR_7 => digit2 := 7;
+                when CHAR_8 => digit2 := 8;
+                when CHAR_9 => digit2 := 9;
+                when others => digit2 := 0;
             end case;
         end if;
         
         if char3 /= CHAR_SPACE then
             digits_found := digits_found + 1;
             case char3 is
-                when CHAR_0 => digit_values(digits_found) := 0;
-                when CHAR_1 => digit_values(digits_found) := 1;
-                when CHAR_2 => digit_values(digits_found) := 2;
-                when CHAR_3 => digit_values(digits_found) := 3;
-                when CHAR_4 => digit_values(digits_found) := 4;
-                when CHAR_5 => digit_values(digits_found) := 5;
-                when CHAR_6 => digit_values(digits_found) := 6;
-                when CHAR_7 => digit_values(digits_found) := 7;
-                when CHAR_8 => digit_values(digits_found) := 8;
-                when CHAR_9 => digit_values(digits_found) := 9;
-                when others => digit_values(digits_found) := 0;
+                when CHAR_0 => digit3 := 0;
+                when CHAR_1 => digit3 := 1;
+                when CHAR_2 => digit3 := 2;
+                when CHAR_3 => digit3 := 3;
+                when CHAR_4 => digit3 := 4;
+                when CHAR_5 => digit3 := 5;
+                when CHAR_6 => digit3 := 6;
+                when CHAR_7 => digit3 := 7;
+                when CHAR_8 => digit3 := 8;
+                when CHAR_9 => digit3 := 9;
+                when others => digit3 := 0;
             end case;
         end if;
         
         case digits_found is
             when 1 =>
-                value := digit_values(1);
+                value := digit1;
             when 2 =>
-                value := digit_values(1) * 10 + digit_values(2);
+                value := digit1 * 10 + digit2;
             when 3 =>
-                value := digit_values(1) * 100 + digit_values(2) * 10 + digit_values(3);
+                value := digit1 * 100 + digit2 * 10 + digit3;
             when others =>
                 value := 0;
         end case;

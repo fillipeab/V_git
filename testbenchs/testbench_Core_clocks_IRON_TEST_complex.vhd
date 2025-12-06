@@ -3,10 +3,10 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.Quiz_Strings_PKG.all;
 
-entity tb_Quiz_Core_Hyper_Rigorous is
-end entity tb_Quiz_CoreHyper_Rigorous;
+entity tb_Quiz_Core_Minimal_Hyper_Rigorous is
+end entity tb_Quiz_Core_Minimal_Hyper_Rigorous;
 
-architecture Behavioral of tb_Quiz_Core_Hyper_Rigorous is
+architecture Behavioral of tb_Quiz_Core_Minimal_Hyper_Rigorous is
 
     constant CLK_PERIOD : time := 20 ns;
     constant SAFETY_CYCLES : integer := 2;
@@ -156,22 +156,19 @@ begin
         end procedure;
         
         procedure show_display(msg : string) is
+            variable line1_str : string(1 to 16);
+            variable line2_str : string(1 to 16);
+            variable char_value : integer;
         begin
             report "CLK " & integer'image(clock_count) & " - " & msg severity note;
-            report "  Line 1: " & display_line_to_string(dsp_line_1) severity note;
-            report "  Line 2: " & display_line_to_string(dsp_line_2) severity note;
-            report "  ASCII Line 1: " severity note;
-            for i in 15 downto 0 loop
-                report "    Pos " & integer'image(15-i) & ": " & 
-                       integer'image(to_integer(unsigned(dsp_line_1(i*8+7 downto i*8)))) & 
-                       " (" & character'image(character'val(to_integer(unsigned(dsp_line_1(i*8+7 downto i*8))))) & ")" severity note;
-            end loop;
-            report "  ASCII Line 2: " severity note;
-            for i in 15 downto 0 loop
-                report "    Pos " & integer'image(15-i) & ": " & 
-                       integer'image(to_integer(unsigned(dsp_line_2(i*8+7 downto i*8)))) & 
-                       " (" & character'image(character'val(to_integer(unsigned(dsp_line_2(i*8+7 downto i*8))))) & ")" severity note;
-            end loop;
+            
+            line1_str := display_line_to_string(dsp_line_1);
+            line2_str := display_line_to_string(dsp_line_2);
+            
+            report "  Line 1: '" & line1_str & "'" severity note;
+            report "  Line 2: '" & line2_str & "'" severity note;
+            report "  Hex Line 1: " & to_hstring(dsp_line_1) severity note;
+            report "  Hex Line 2: " & to_hstring(dsp_line_2) severity note;
         end procedure;
         
         procedure press_start is
@@ -259,10 +256,13 @@ begin
             texto : std_logic_vector(127 downto 0);
             resposta : integer
         ) is
+            variable texto_str : string(1 to 16);
         begin
+            texto_str := display_line_to_string(texto);
             report "CLK " & integer'image(clock_count) & 
                    " - Setting question " & integer'image(index) & 
                    " (answer: " & integer'image(resposta) & ")" severity note;
+            report "  Text: '" & texto_str & "'" severity note;
             
             question_text <= texto;
             question_answer <= std_logic_vector(to_unsigned(resposta, 8));
